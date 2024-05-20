@@ -18,7 +18,15 @@
           "client_type": 1,
           "android_info": {
             "package_name": "al.burhaan.alburhaan",
-            "certificate_hash": "8fd5f276f7d8360c78f804c3f5e9a8f5e61f16db"
+            "certificate_hash": "0568642ee8babc2c45be6e3f229990d8698b4744"
+          }
+        },
+        {
+          "client_id": "474658779481-icb08hglq5ap86cbb5dtfpkf218deo56.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "al.burhaan.alburhaan",
+            "certificate_hash": "05527a6cc65be938d7a53f61d3a1091c329504e8"
           }
         },
         {

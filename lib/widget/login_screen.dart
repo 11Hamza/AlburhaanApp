@@ -1,9 +1,8 @@
-import 'package:alburhaan/widget/signup_screen.dart';
-import 'package:alburhaan/widget/books_list_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
+import 'package:alburhaan/widget/signup_screen.dart';
 import '../firebase/auth_service.dart';
+import 'HomeScreen.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -22,7 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => BooksListScreen()));
+      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => HomeScreen())); // Navigate to HomeScreen
     } catch (e) {
       setState(() {
         _errorMessage = e.toString();
@@ -73,7 +72,7 @@ class _LoginScreenState extends State<LoginScreen> {
               onPressed: () async {
                 User? user = await _authService.signInWithGoogle();
                 if (user != null) {
-                  Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => BooksListScreen()));
+                  Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => HomeScreen())); // Navigate to HomeScreen
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to sign in with Google')));
                 }

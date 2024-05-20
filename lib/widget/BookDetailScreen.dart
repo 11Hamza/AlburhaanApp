@@ -1,38 +1,71 @@
 import 'package:flutter/material.dart';
+import 'package:alburhaan/models/BookDetail.dart';
+import 'package:alburhaan/services/KohaApiService.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:webview_flutter/platform_interface.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import '../models/BookDetail.dart';
-import '../services/KohaApiService.dart';
 
-class BookDetailScreen extends StatelessWidget {
+import 'WebViewContainer.dart';
+
+class BookDetailScreen extends StatefulWidget {
   final int biblioId;
 
   const BookDetailScreen({Key? key, required this.biblioId}) : super(key: key);
 
-  Widget detailSection(String title, String? content) {
-    if (content == null || content.isEmpty) return SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        children: [
-          Expanded(flex: 2, child: Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-          Expanded(flex: 3, child: Text(content, style: TextStyle(fontSize: 16))),
-        ],
-      ),
-    );
+  @override
+  _BookDetailScreenState createState() => _BookDetailScreenState();
+}
+
+class _BookDetailScreenState extends State<BookDetailScreen> {
+  late Future<BookDetail> _bookDetailFuture;
+  bool isFavorited = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _bookDetailFuture = KohaApiService().fetchBookDetail(widget.biblioId);
+    _checkIfFavorited();
   }
 
-  Widget youtubeVideoSection(String? youtubeUrl) {
-    if (youtubeUrl == null || youtubeUrl.isEmpty) return SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16.0),
-      child: Container(
-        height: 200,
-        child: WebView(
-          initialUrl: youtubeUrl,
-          javascriptMode: JavascriptMode.unrestricted,
-        ),
-      ),
-    );
+  Future<void> _checkIfFavorited() async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      DocumentSnapshot doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('favorites')
+          .doc(widget.biblioId.toString())
+          .get();
+      if (doc.exists) {
+        setState(() {
+          isFavorited = true;
+        });
+      }
+    }
+  }
+
+  Future<void> addToFavorites(BookDetail book) async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      DocumentReference ref = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('favorites')
+          .doc(book.biblioId.toString());
+      await ref.set({
+        'biblioId': book.biblioId,
+        'title': book.title,
+        'author': book.author,
+        'imageUrl': book.imageUrl,
+        // Add other necessary fields
+      });
+      setState(() {
+        isFavorited = true;
+      });
+    } else {
+      print("User not logged in");
+    }
   }
 
   @override
@@ -40,7 +73,7 @@ class BookDetailScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text('Book Details')),
       body: FutureBuilder<BookDetail>(
-        future: KohaApiService().fetchBookDetail(biblioId),
+        future: _bookDetailFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
             return SingleChildScrollView(
@@ -85,6 +118,7 @@ class BookDetailScreen extends StatelessWidget {
                               ),
                               child: Text('Read eBook')
                           ),
+                        _buildFavoriteButton(snapshot.data!),
                       ],
                     ),
                   ),
@@ -102,20 +136,40 @@ class BookDetailScreen extends StatelessWidget {
       ),
     );
   }
-}
 
-class WebViewContainer extends StatelessWidget {
-  final String url;
+  Widget _buildFavoriteButton(BookDetail book) {
+    return ElevatedButton(
+      onPressed: isFavorited ? null : () => addToFavorites(book),
+      child: Text(isFavorited ? 'Added to Favorites' : 'Add to Favorites'),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: isFavorited ? Colors.grey : Colors.red,
+      ),
+    );
+  }
 
-  WebViewContainer({required this.url});
+  Widget detailSection(String title, String? content) {
+    if (content == null || content.isEmpty) return SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Expanded(flex: 2, child: Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+          Expanded(flex: 3, child: Text(content, style: TextStyle(fontSize: 16))),
+        ],
+      ),
+    );
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text("Content Viewer")),
-      body: WebView(
-        initialUrl: url,
-        javascriptMode: JavascriptMode.unrestricted,
+  Widget youtubeVideoSection(String? youtubeUrl) {
+    if (youtubeUrl == null || youtubeUrl.isEmpty) return SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16.0),
+      child: Container(
+        height: 200,
+        child: WebView(
+          initialUrl: youtubeUrl,
+          javascriptMode: JavascriptMode.unrestricted,
+        ),
       ),
     );
   }

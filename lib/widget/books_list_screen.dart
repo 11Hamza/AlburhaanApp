@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../models/book_response.dart';
 import '../services/KohaApiService.dart';
 import 'BookDetailScreen.dart';
+import 'FavouritesScreen.dart';
 
 class BooksListScreen extends StatefulWidget {
   @override
@@ -18,7 +19,7 @@ class _BooksListScreenState extends State<BooksListScreen> {
 
   void _fetchBooks({String? query}) {
     if (query != null) {
-      books.clear();   // Clear existing books for a new search
+      books.clear();  // Clear existing books for a new search
       currentPage = 1; // Reset pagination
     }
 
@@ -50,18 +51,14 @@ class _BooksListScreenState extends State<BooksListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Books'),
+        title: Text('Library'),
         actions: <Widget>[
           IconButton(
-            icon: Icon(Icons.search),
+            icon: Icon(Icons.favorite),
             onPressed: () {
-              if (_searchController.text.isNotEmpty) {
-                books.clear();
-                currentPage = 1; // Reset page count to fetch from the first page
-                _fetchBooks(query: _searchController.text);
-              }
+              Navigator.of(context).push(MaterialPageRoute(builder: (context) => FavoritesScreen())); // Navigate to Favorites Screen
             },
-          )
+          ),
         ],
       ),
       body: Column(
@@ -76,18 +73,16 @@ class _BooksListScreenState extends State<BooksListScreen> {
                 suffixIcon: IconButton(
                   icon: Icon(Icons.search),
                   onPressed: () {
-                    // Clear current book list, reset page counter, and fetch books based on the search query
                     books.clear();
                     currentPage = 1;
-                    _fetchBooks(query: _searchController.text.trim());  // Ensure we trim the text to remove any leading/trailing whitespaces
+                    _fetchBooks(query: _searchController.text.trim());
                   },
                 ),
               ),
               onSubmitted: (value) {
-                // Also initiate search when keyboard search is pressed
                 books.clear();
                 currentPage = 1;
-                _fetchBooks(query: value.trim());  // Same trim here
+                _fetchBooks(query: value.trim());
               },
             ),
           ),
@@ -101,12 +96,14 @@ class _BooksListScreenState extends State<BooksListScreen> {
                 } else {
                   final book = books[index];
                   return Card(
+                    elevation: 4.0,
+                    margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     child: ListTile(
                       leading: CachedNetworkImage(
-                        imageUrl: book.imageUrl!,
+                        imageUrl: book.imageUrl ?? '',
                         placeholder: (context, url) => CircularProgressIndicator(),
                         errorWidget: (context, url, error) => Icon(Icons.error),
-                        width: 100,
+                        width: 50,
                         height: 100,
                         fit: BoxFit.cover,
                       ),
