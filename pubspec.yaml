@@ -37,6 +37,8 @@ dependencies:
   firebase_auth: ^4.7.0
   google_sign_in: ^6.2.1
   cloud_firestore: ^4.17.3
+  table_calendar: ^3.0.0
+  ical: ^0.2.2
 
 
 
@@ -51,6 +53,8 @@ dev_dependencies:
   firebase_auth: ^4.7.0
   google_sign_in: ^6.2.1
   cloud_firestore: ^4.17.3
+  table_calendar: ^3.0.0
+  ical: ^0.2.2
 
 
 
