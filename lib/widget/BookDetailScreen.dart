@@ -3,8 +3,9 @@ import 'package:alburhaan/models/BookDetail.dart';
 import 'package:alburhaan/services/KohaApiService.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:webview_flutter/platform_interface.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:mailer/mailer.dart';
+import 'package:mailer/smtp_server.dart';
 
 import 'WebViewContainer.dart';
 
@@ -68,6 +69,100 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
     }
   }
 
+  Future<void> _sendReservationEmail(BookDetail book, String userEmail) async {
+    final smtpServer = SmtpServer(
+      'mail.al-burhaan.org',
+      port: 465,
+      ssl: true,
+      username: 'no-reply@al-burhaan.org',
+      password: r'{n9C&*=$iAN)',
+    );
+
+    final message = Message()
+      ..from = Address('no-reply@al-burhaan.org', 'Al-Burhaan No-Reply')
+      ..recipients.add('hamzaaebrahim@gmail.com') // Replace with the recipient's email address
+      ..subject = 'Book Reservation Request'
+      ..text = 'User Email: $userEmail\n\n'
+          'Book Details:\n'
+          'Title: ${book.title}\n'
+          'Author: ${book.author}\n'
+          'ISBN: ${book.isbn}\n'
+          'Publisher: ${book.publisher}\n'
+          'Publication Year: ${book.publicationYear}\n'
+          'Shelf Number: ${book.shelfNumber}\n'
+          'Call Number: ${book.callNumber}\n'
+          'Language: ${book.language}\n'
+          'Physical Description: ${book.physicalDescription}\n'
+          'Series: ${book.series}\n'
+          'Notes: ${book.notes}\n';
+
+    try {
+      final sendReport = await send(message, smtpServer);
+      print('Message sent: ' + sendReport.toString());
+    } on MailerException catch (e) {
+      print('Message not sent. \n' + e.toString());
+    }
+  }
+
+  void _showConfirmationDialog(BookDetail book) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Confirm Reservation'),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                Text('Are you sure you want to reserve this book?'),
+                SizedBox(height: 10),
+                Text('Title: ${book.title}'),
+                Text('Author: ${book.author}'),
+                Text('ISBN: ${book.isbn}'),
+                // Add more book details here
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: Text('Confirm'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _sendReservationEmail(book, FirebaseAuth.instance.currentUser?.email ?? '');
+                _showWaitForResponseDialog();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showWaitForResponseDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Reservation Submitted'),
+          content: Text('Please wait for a response via email.'),
+          actions: <Widget>[
+            TextButton(
+              child: Text('OK'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -118,7 +213,19 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                               ),
                               child: Text('Read eBook')
                           ),
-                        _buildFavoriteButton(snapshot.data!),
+                        SizedBox(height: 20), // Add space before the buttons
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            Expanded(
+                              child: _buildFavoriteButton(snapshot.data!),
+                            ),
+                            SizedBox(width: 10), // Add space between buttons
+                            Expanded(
+                              child: _buildReserveButton(snapshot.data!),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -142,7 +249,17 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
       onPressed: isFavorited ? null : () => addToFavorites(book),
       child: Text(isFavorited ? 'Added to Favorites' : 'Add to Favorites'),
       style: ElevatedButton.styleFrom(
-        backgroundColor: isFavorited ? Colors.grey : Colors.red,
+        foregroundColor: Colors.white, backgroundColor: isFavorited ? Colors.grey : Colors.brown, // Set text color
+      ),
+    );
+  }
+
+  Widget _buildReserveButton(BookDetail book) {
+    return ElevatedButton(
+      onPressed: () => _showConfirmationDialog(book),
+      child: Text('Reserve Book'),
+      style: ElevatedButton.styleFrom(
+        foregroundColor: Colors.white, backgroundColor: Colors.brown, // Set text color
       ),
     );
   }

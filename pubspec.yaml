@@ -39,7 +39,8 @@ dependencies:
   cloud_firestore: ^4.17.3
   table_calendar: ^3.0.0
   ical: ^0.2.2
-
+  intl: ^0.17.0
+  mailer: ^6.1.0
 
 
 
@@ -55,7 +56,8 @@ dev_dependencies:
   cloud_firestore: ^4.17.3
   table_calendar: ^3.0.0
   ical: ^0.2.2
-
+  intl: ^0.17.0
+  mailer: ^6.1.0
 
 
 
