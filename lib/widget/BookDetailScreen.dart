@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:alburhaan/models/BookDetail.dart';
 import 'package:alburhaan/services/KohaApiService.dart';
@@ -89,7 +91,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
           'ISBN: ${book.isbn}\n'
           'Publisher: ${book.publisher}\n'
           'Publication Year: ${book.publicationYear}\n'
-          'Shelf Number: ${book.shelfNumber}\n'
+          'Shelf Number: ${book.shelvingLocation}\n'
           'Call Number: ${book.callNumber}\n'
           'Language: ${book.language}\n'
           'Physical Description: ${book.physicalDescription}\n'
@@ -171,6 +173,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
         future: _bookDetailFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
+            print('Book details loaded: ${snapshot.data}');
             return SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -196,12 +199,13 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                         detailSection("ISBN", snapshot.data!.isbn),
                         detailSection("Publisher", snapshot.data!.publisher),
                         detailSection("Publication Year", snapshot.data!.publicationYear),
-                        detailSection("Shelf Number", snapshot.data!.shelfNumber),
+                        detailSection("Shelving Location", snapshot.data!.shelvingLocation),
                         detailSection("Call Number", snapshot.data!.callNumber),
                         detailSection("Language", snapshot.data!.language),
                         detailSection("Physical Description", snapshot.data!.physicalDescription),
                         detailSection("Series", snapshot.data!.series),
                         detailSection("Notes", snapshot.data!.notes),
+                        detailSection("Electronic Location", snapshot.data!.electronicLocation),
                         youtubeVideoSection(snapshot.data!.youtubeUrl),
                         if (snapshot.data!.ebookUrl != null)
                           ElevatedButton(
@@ -226,6 +230,29 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                             ),
                           ],
                         ),
+                        if (snapshot.data!.holdings != null && snapshot.data!.holdings!.isNotEmpty)
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text("Holdings:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                              ...snapshot.data!.holdings!.map((holding) {
+                                if (holding['uri'] != null && holding['uri'] is String && holding['uri'].isNotEmpty) {
+                                  return ListTile(
+                                    title: Text("Resource Link"),
+                                    subtitle: Text(holding['uri']),
+                                    onTap: () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                            builder: (context) => WebViewContainer(url: holding['uri'])
+                                        )
+                                    ),
+                                  );
+                                } else {
+                                  return SizedBox.shrink();
+                                }
+                              }).toList(),
+                            ],
+                          ),
                       ],
                     ),
                   ),
@@ -279,6 +306,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
 
   Widget youtubeVideoSection(String? youtubeUrl) {
     if (youtubeUrl == null || youtubeUrl.isEmpty) return SizedBox.shrink();
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16.0),
       child: Container(
@@ -286,8 +314,46 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
         child: WebView(
           initialUrl: youtubeUrl,
           javascriptMode: JavascriptMode.unrestricted,
+          onWebViewCreated: (WebViewController webViewController) {
+            webViewController.evaluateJavascript('''
+            var tag = document.createElement('script');
+            tag.src = "https://www.youtube.com/iframe_api";
+            var firstScriptTag = document.getElementsByTagName('script')[0];
+            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+            function onYouTubeIframeAPIReady() {
+              var player;
+              player = new YT.Player('player', {
+                events: {
+                  'onReady': onPlayerReady,
+                  'onStateChange': onPlayerStateChange
+                }
+              });
+            }
+            function onPlayerReady(event) {
+              event.target.playVideo();
+            }
+            function onPlayerStateChange(event) {
+              if (event.data == YT.PlayerState.PLAYING) {
+                // handle fullscreen here
+                var iframe = document.querySelector('iframe');
+                iframe.requestFullscreen();
+              }
+            }
+          ''');
+          },
+          navigationDelegate: (NavigationRequest request) {
+            if (Platform.isAndroid) {
+              if (request.url.contains('youtube.com')) {
+                return NavigationDecision.navigate;
+              } else {
+                return NavigationDecision.prevent;
+              }
+            }
+            return NavigationDecision.navigate;
+          },
         ),
       ),
     );
   }
+
 }

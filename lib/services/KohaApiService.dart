@@ -41,9 +41,35 @@ class KohaApiService {
 
     if (response.statusCode == 200) {
       var decodedData = utf8.decode(response.bodyBytes);
-      return BookDetail.fromJson(json.decode(decodedData));
+      var jsonData = json.decode(decodedData);
+
+      // Fetch items for the biblio to get shelving location and holdings
+      var itemsResponse = await fetchBiblioItems(biblioId);
+      String? shelvingLocation = itemsResponse.isNotEmpty ? itemsResponse[0]['location'] : null;
+
+      return BookDetail.fromJson({
+        ...jsonData,
+        'shelving_location': shelvingLocation,
+        'holdings': itemsResponse,
+      });
     } else {
       throw Exception('Failed to load book detail. Status code: ${response.statusCode}');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchBiblioItems(int biblioId) async {
+    String basicAuth = 'Basic ' + base64Encode(utf8.encode('$username:$password'));
+    String url = "$baseUrl/biblios/$biblioId/items";
+
+    var response = await http.get(Uri.parse(url), headers: {
+      'Authorization': basicAuth,
+      'Accept': 'application/json; charset=utf-8'
+    });
+
+    if (response.statusCode == 200) {
+      return List<Map<String, dynamic>>.from(json.decode(utf8.decode(response.bodyBytes)));
+    } else {
+      throw Exception('Failed to load biblio items. Status code: ${response.statusCode}');
     }
   }
 }
