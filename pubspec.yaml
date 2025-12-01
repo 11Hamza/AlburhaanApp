@@ -34,7 +34,7 @@ dependencies:
   barcode_widget: ^2.0.4
 
   # Utilities
-  intl: ^0.18.1
+  intl: ^0.20.2
   url_launcher: ^6.2.1
 
   # Icons

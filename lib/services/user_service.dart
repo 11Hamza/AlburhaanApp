@@ -147,8 +147,8 @@ class UserService {
       final summary = data['summary'] ?? {};
 
       return (
-        renewed: summary['renewed'] ?? 0,
-        failed: summary['failed'] ?? 0,
+        renewed: (summary['renewed'] as int?) ?? 0,
+        failed: (summary['failed'] as int?) ?? 0,
         message: data['message'] as String?,
       );
     }
