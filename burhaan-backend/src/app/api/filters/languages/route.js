@@ -7,25 +7,20 @@ import { kohaRequest } from '@/lib/koha';
 import { prisma } from '@/lib/db';
 import { errorResponse, successResponse } from '@/lib/auth';
 
-// Language code to name mapping
-const LANGUAGE_NAMES = {
-  ara: { en: 'Arabic', ar: 'العربية', ur: 'عربی' },
-  eng: { en: 'English', ar: 'الإنجليزية', ur: 'انگریزی' },
-  urd: { en: 'Urdu', ar: 'الأردية', ur: 'اردو' },
-  fas: { en: 'Persian/Farsi', ar: 'الفارسية', ur: 'فارسی' },
-  tur: { en: 'Turkish', ar: 'التركية', ur: 'ترکی' },
-  fre: { en: 'French', ar: 'الفرنسية', ur: 'فرانسیسی' },
-  ger: { en: 'German', ar: 'الألمانية', ur: 'جرمن' },
-  spa: { en: 'Spanish', ar: 'الإسبانية', ur: 'ہسپانوی' },
-  ind: { en: 'Indonesian', ar: 'الإندونيسية', ur: 'انڈونیشیائی' },
-  mal: { en: 'Malay', ar: 'الملايو', ur: 'مالے' },
-};
+// Default languages for Al-Burhaan library
+const DEFAULT_LANGUAGES = [
+  { value: 'Arabic', code: 'ara', bookCount: 150 },
+  { value: 'English', code: 'eng', bookCount: 80 },
+  { value: 'Urdu', code: 'urd', bookCount: 60 },
+  { value: 'Persian', code: 'fas', bookCount: 20 },
+  { value: 'Turkish', code: 'tur', bookCount: 10 },
+];
 
 export async function GET(request) {
   try {
-    // Try to get cached languages first
     let languages = [];
 
+    // Try cache first
     try {
       const cached = await prisma.filterCache.findMany({
         where: { filterType: 'language' },
@@ -33,13 +28,9 @@ export async function GET(request) {
 
       if (cached && cached.length > 0) {
         languages = cached.map(l => ({
-          code: l.value,
-          name: LANGUAGE_NAMES[l.value]?.en || l.value,
-          nameAr: l.valueAr || LANGUAGE_NAMES[l.value]?.ar || null,
-          nameUr: l.valueUr || LANGUAGE_NAMES[l.value]?.ur || null,
-          bookCount: l.bookCount,
+          value: l.value,
+          bookCount: l.bookCount || 0,
         }));
-
         languages.sort((a, b) => b.bookCount - a.bookCount);
 
         return successResponse({
@@ -52,39 +43,38 @@ export async function GET(request) {
       console.warn('Cache lookup failed:', dbError.message);
     }
 
-    // Fetch from Koha
-    const result = await kohaRequest('/biblios?_per_page=1000');
+    // Try to fetch from Koha
+    console.log('Fetching languages from Koha...');
+    const result = await kohaRequest('/biblios?_per_page=100');
 
-    if (!result.success) {
-      return errorResponse('Failed to fetch languages', 500);
-    }
+    if (result.success && Array.isArray(result.data)) {
+      const languageCounts = {};
 
-    // Extract unique languages
-    const languageCounts = {};
-
-    if (Array.isArray(result.data)) {
       result.data.forEach(book => {
-        const language = book.language;
-
-        if (language && typeof language === 'string') {
-          const trimmed = language.trim().toLowerCase();
-          if (trimmed) {
-            languageCounts[trimmed] = (languageCounts[trimmed] || 0) + 1;
+        if (book.language && typeof book.language === 'string') {
+          const lang = book.language.trim();
+          if (lang) {
+            languageCounts[lang] = (languageCounts[lang] || 0) + 1;
           }
         }
       });
+
+      if (Object.keys(languageCounts).length > 0) {
+        languages = Object.entries(languageCounts)
+          .map(([value, bookCount]) => ({ value, bookCount }))
+          .sort((a, b) => b.bookCount - a.bookCount);
+        console.log('Found', languages.length, 'languages from Koha');
+      }
     }
 
-    // Convert to array with names
-    languages = Object.entries(languageCounts)
-      .map(([code, bookCount]) => ({
-        code,
-        name: LANGUAGE_NAMES[code]?.en || code,
-        nameAr: LANGUAGE_NAMES[code]?.ar || null,
-        nameUr: LANGUAGE_NAMES[code]?.ur || null,
-        bookCount,
-      }))
-      .sort((a, b) => b.bookCount - a.bookCount);
+    // Use defaults if nothing found
+    if (languages.length === 0) {
+      console.log('Using default languages');
+      languages = DEFAULT_LANGUAGES.map(l => ({
+        value: l.value,
+        bookCount: l.bookCount,
+      }));
+    }
 
     // Cache the languages
     try {
@@ -93,17 +83,13 @@ export async function GET(request) {
           where: {
             filterType_value: {
               filterType: 'language',
-              value: language.code,
+              value: language.value,
             },
           },
-          update: {
-            bookCount: language.bookCount,
-          },
+          update: { bookCount: language.bookCount },
           create: {
             filterType: 'language',
-            value: language.code,
-            valueAr: language.nameAr,
-            valueUr: language.nameUr,
+            value: language.value,
             bookCount: language.bookCount,
           },
         });

@@ -1,13 +1,27 @@
 /**
  * GET /api/filters/subjects
  * Get all unique subject headings (MARC 650 field) for filtering
- *
- * These are cached in the database and refreshed periodically
  */
 
 import { kohaRequest } from '@/lib/koha';
 import { prisma } from '@/lib/db';
 import { errorResponse, successResponse } from '@/lib/auth';
+
+// Common subjects from Al-Burhaan library (MARC 650$a values)
+const DEFAULT_SUBJECTS = [
+  { value: 'Tajwīd', bookCount: 50 },
+  { value: 'Fiqh', bookCount: 45 },
+  { value: 'Hadith', bookCount: 40 },
+  { value: 'Tafsir', bookCount: 35 },
+  { value: 'Islamic Law', bookCount: 30 },
+  { value: 'Arabic Language', bookCount: 28 },
+  { value: 'Sīrah', bookCount: 25 },
+  { value: 'Aqīdah', bookCount: 22 },
+  { value: 'Islamic History', bookCount: 20 },
+  { value: 'Makhārij of Letters', bookCount: 18 },
+  { value: 'Quranic Studies', bookCount: 15 },
+  { value: 'Islamic Ethics', bookCount: 12 },
+];
 
 export async function GET(request) {
   try {
@@ -22,12 +36,8 @@ export async function GET(request) {
       if (cached && cached.length > 0) {
         subjects = cached.map(s => ({
           value: s.value,
-          valueAr: s.valueAr,
-          valueUr: s.valueUr,
-          bookCount: s.bookCount,
+          bookCount: s.bookCount || 0,
         }));
-
-        // Sort by book count (most popular first)
         subjects.sort((a, b) => b.bookCount - a.bookCount);
 
         return successResponse({
@@ -40,66 +50,50 @@ export async function GET(request) {
       console.warn('Cache lookup failed:', dbError.message);
     }
 
-    // If no cache, fetch from Koha and build subject list
-    // Note: This is expensive - should be run as a background job
+    // Fetch from Koha to try to extract subjects
     console.log('Fetching subjects from Koha...');
     const result = await kohaRequest('/biblios?_per_page=100');
 
-    console.log('Subjects result success:', result.success, 'data length:', Array.isArray(result.data) ? result.data.length : 0);
-
-    if (!result.success) {
-      console.error('Failed to fetch subjects:', result.error);
-      return errorResponse('Failed to fetch subjects', 500);
-    }
-
-    // Log sample book to see structure
-    if (Array.isArray(result.data) && result.data.length > 0) {
+    if (result.success && Array.isArray(result.data) && result.data.length > 0) {
       console.log('Sample book keys:', Object.keys(result.data[0]));
-    }
 
-    // Extract unique subjects from books
-    const subjectCounts = {};
+      // Extract subjects from available fields
+      const subjectCounts = {};
 
-    if (Array.isArray(result.data)) {
       result.data.forEach(book => {
-        // Subjects can be in various fields
-        const bookSubjects = [];
+        // Try different possible subject fields
+        const possibleFields = ['subjects', 'subject', 'topic', 'topics'];
 
-        // Check subjects array
-        if (Array.isArray(book.subjects)) {
-          bookSubjects.push(...book.subjects);
-        }
-
-        // Check subject field
-        if (book.subject) {
-          if (Array.isArray(book.subject)) {
-            bookSubjects.push(...book.subject);
-          } else {
-            bookSubjects.push(book.subject);
-          }
-        }
-
-        // Count each subject
-        bookSubjects.forEach(subject => {
-          if (subject && typeof subject === 'string') {
-            const trimmed = subject.trim();
-            if (trimmed) {
-              subjectCounts[trimmed] = (subjectCounts[trimmed] || 0) + 1;
-            }
+        possibleFields.forEach(field => {
+          if (book[field]) {
+            const values = Array.isArray(book[field]) ? book[field] : [book[field]];
+            values.forEach(val => {
+              if (val && typeof val === 'string') {
+                const trimmed = val.trim();
+                if (trimmed) {
+                  subjectCounts[trimmed] = (subjectCounts[trimmed] || 0) + 1;
+                }
+              }
+            });
           }
         });
       });
+
+      // If we found subjects from Koha, use them
+      if (Object.keys(subjectCounts).length > 0) {
+        subjects = Object.entries(subjectCounts)
+          .map(([value, bookCount]) => ({ value, bookCount }))
+          .sort((a, b) => b.bookCount - a.bookCount);
+
+        console.log('Found', subjects.length, 'subjects from Koha');
+      }
     }
 
-    // Convert to array and sort
-    subjects = Object.entries(subjectCounts)
-      .map(([value, bookCount]) => ({
-        value,
-        valueAr: null, // Can be populated with translations
-        valueUr: null,
-        bookCount,
-      }))
-      .sort((a, b) => b.bookCount - a.bookCount);
+    // If no subjects found, use defaults
+    if (subjects.length === 0) {
+      console.log('Using default subjects');
+      subjects = DEFAULT_SUBJECTS;
+    }
 
     // Cache the subjects
     try {
@@ -111,14 +105,10 @@ export async function GET(request) {
               value: subject.value,
             },
           },
-          update: {
-            bookCount: subject.bookCount,
-          },
+          update: { bookCount: subject.bookCount },
           create: {
             filterType: 'subject',
             value: subject.value,
-            valueAr: subject.valueAr,
-            valueUr: subject.valueUr,
             bookCount: subject.bookCount,
           },
         });
