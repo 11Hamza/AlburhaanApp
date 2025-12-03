@@ -1,34 +1,54 @@
 /**
  * POST /api/auth/guest
- * Get a guest session token for browsing without login
+ * Login as guest user using pre-configured Koha guest account
  */
 
+import { validateCredentials, getPatronByCardNumber } from '@/lib/koha';
 import { generateToken, successResponse, errorResponse, getTokenExpiry } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 
 export async function POST(request) {
   try {
-    // Create a guest patron object
+    // Get guest credentials from environment
+    const guestCardNumber = process.env.KOHA_GUEST_CARDNUMBER;
+    const guestPassword = process.env.KOHA_GUEST_PASSWORD;
+
+    if (!guestCardNumber || !guestPassword) {
+      console.error('Guest credentials not configured');
+      return errorResponse('Guest login not available', 503);
+    }
+
+    // Validate guest credentials with Koha
+    const isValid = await validateCredentials(guestCardNumber, guestPassword);
+
+    if (!isValid) {
+      console.error('Guest credentials invalid in Koha');
+      return errorResponse('Guest login unavailable', 503);
+    }
+
+    // Get guest patron details from Koha
+    const patron = await getPatronByCardNumber(guestCardNumber);
+
+    if (!patron) {
+      console.error('Guest patron not found in Koha');
+      return errorResponse('Guest account not found', 503);
+    }
+
+    // Add guest flag to patron object
     const guestPatron = {
-      patron_id: 0, // Special ID for guest
-      cardnumber: 'GUEST',
-      firstname: 'Guest',
-      surname: 'User',
-      email: null,
-      library_id: null,
-      category_id: 'GUEST',
+      ...patron,
       isGuest: true,
     };
 
-    // Generate JWT token for guest
+    // Generate JWT token
     const token = generateToken(guestPatron);
     const expiresAt = getTokenExpiry();
 
-    // Optionally store guest session
+    // Store session
     try {
       await prisma.session.create({
         data: {
-          patronId: 0,
+          patronId: patron.patron_id,
           token,
           expiresAt,
         },
@@ -41,12 +61,12 @@ export async function POST(request) {
       token,
       expiresAt: expiresAt.toISOString(),
       user: {
-        patronId: 0,
-        cardNumber: 'GUEST',
-        firstName: 'Guest',
-        surname: 'User',
-        email: null,
-        libraryId: null,
+        patronId: patron.patron_id,
+        cardNumber: patron.cardnumber,
+        firstName: patron.firstname,
+        surname: patron.surname,
+        email: patron.email || null,
+        libraryId: patron.library_id,
         isGuest: true,
       },
     }, 'Guest session created');
