@@ -42,10 +42,19 @@ export async function GET(request) {
 
     // If no cache, fetch from Koha and build subject list
     // Note: This is expensive - should be run as a background job
-    const result = await kohaRequest('/biblios?_per_page=1000');
+    console.log('Fetching subjects from Koha...');
+    const result = await kohaRequest('/biblios?_per_page=100');
+
+    console.log('Subjects result success:', result.success, 'data length:', Array.isArray(result.data) ? result.data.length : 0);
 
     if (!result.success) {
+      console.error('Failed to fetch subjects:', result.error);
       return errorResponse('Failed to fetch subjects', 500);
+    }
+
+    // Log sample book to see structure
+    if (Array.isArray(result.data) && result.data.length > 0) {
+      console.log('Sample book keys:', Object.keys(result.data[0]));
     }
 
     // Extract unique subjects from books
