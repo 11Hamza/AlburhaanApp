@@ -143,11 +143,14 @@ async function getLibraryById(libraryId) {
 
 /**
  * Get books (biblios) with pagination and filters
+ * Note: Subject/language filtering requires MARC field search which isn't
+ * directly supported - these filters are ignored for now
  */
 async function getBooks({ page = 1, perPage = 10, query = null, filters = {} } = {}) {
   let url = `/biblios?_page=${page}&_per_page=${perPage}`;
 
   // Build query object for filtering
+  // Only use fields that Koha biblios endpoint actually supports
   const queryObj = {};
 
   if (query) {
@@ -163,8 +166,15 @@ async function getBooks({ page = 1, perPage = 10, query = null, filters = {} } =
     queryObj.isbn = filters.isbn;
   }
 
+  // Note: subject and language filters are not directly supported by Koha biblios API
+  // They would need MARC field searching which requires a different approach
+  // For now, we skip these filters to avoid 500 errors
   if (filters.subject) {
-    queryObj.subject = { '-like': `%${filters.subject}%` };
+    console.log('Subject filter requested but not supported by Koha biblios API:', filters.subject);
+  }
+
+  if (filters.language) {
+    console.log('Language filter requested but not supported by Koha biblios API:', filters.language);
   }
 
   if (Object.keys(queryObj).length > 0) {
