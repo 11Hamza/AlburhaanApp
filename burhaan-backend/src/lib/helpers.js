@@ -106,6 +106,7 @@ export function formatBookResponse(book) {
     imageUrl: `https://library.al-burhaan.org/cgi-bin/koha/opac-image.pl?thumbnail=1&biblionumber=${book.biblio_id}&filetype=image`,
     ebookUrl: book.ebook_url || null,
     youtubeUrl: book.youtube_url || null,
+    pdfUrl: book.pdf_url || null,
   };
 }
 
