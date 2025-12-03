@@ -43,7 +43,10 @@ export async function GET(request) {
       filters,
     });
 
+    console.log('Books API result:', JSON.stringify(result, null, 2).substring(0, 500));
+
     if (!result.success) {
+      console.error('Books fetch failed:', result.error, result.status);
       return errorResponse(result.error || 'Failed to fetch books', result.status || 500);
     }
 
