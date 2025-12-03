@@ -188,8 +188,11 @@ class ApiService {
       // Success
       T? data;
 
-      // Extract 'data' field if response has our API format
-      final responseData = (body is Map && body.containsKey('data'))
+      // Check if response has pagination (keep full structure for paginated responses)
+      final bool hasPagination = body is Map && body.containsKey('pagination');
+
+      // Extract 'data' field only if no pagination (single item responses)
+      final responseData = (body is Map && body.containsKey('data') && !hasPagination)
           ? body['data']
           : body;
 
