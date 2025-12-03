@@ -5,8 +5,24 @@ import '../providers/books_provider.dart';
 import '../models/book.dart';
 import 'book_detail_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Load books and filters on init
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final booksProvider = context.read<BooksProvider>();
+      booksProvider.loadBooks();
+      booksProvider.loadFilters();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,9 +81,9 @@ class HomeScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  childAspectRatio: 0.65,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
+                  childAspectRatio: 0.55,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
                 ),
                 itemCount: booksProvider.books.length +
                     (booksProvider.hasMore ? 1 : 0),
@@ -121,6 +137,7 @@ class _BookCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       clipBehavior: Clip.antiAlias,
+      elevation: 2,
       child: InkWell(
         onTap: () {
           Navigator.of(context).push(
@@ -132,63 +149,55 @@ class _BookCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Book Cover
+            // Book Cover - Fixed size container with contain fit
             Expanded(
-              flex: 3,
-              child: book.imageUrl != null
-                  ? CachedNetworkImage(
-                      imageUrl: book.imageUrl!,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) => Container(
-                        color: Theme.of(context).colorScheme.surfaceVariant,
-                        child: const Center(
-                          child: Icon(Icons.book, size: 48),
+              flex: 4,
+              child: Container(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                padding: const EdgeInsets.all(8),
+                child: book.imageUrl != null
+                    ? CachedNetworkImage(
+                        imageUrl: book.imageUrl!,
+                        fit: BoxFit.contain,
+                        placeholder: (_, __) => const Center(
+                          child: Icon(Icons.book, size: 48, color: Colors.grey),
                         ),
-                      ),
-                      errorWidget: (_, __, ___) => Container(
-                        color: Theme.of(context).colorScheme.surfaceVariant,
-                        child: const Center(
-                          child: Icon(Icons.book, size: 48),
+                        errorWidget: (_, __, ___) => const Center(
+                          child: Icon(Icons.book, size: 48, color: Colors.grey),
                         ),
+                      )
+                    : const Center(
+                        child: Icon(Icons.book, size: 48, color: Colors.grey),
                       ),
-                    )
-                  : Container(
-                      color: Theme.of(context).colorScheme.surfaceVariant,
-                      child: const Center(
-                        child: Icon(Icons.book, size: 48),
-                      ),
-                    ),
+              ),
             ),
             // Book Info
-            Expanded(
-              flex: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    book.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          height: 1.2,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  if (book.author != null)
                     Text(
-                      book.title,
-                      maxLines: 2,
+                      book.author!,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                     ),
-                    const SizedBox(height: 4),
-                    if (book.author != null)
-                      Text(
-                        book.author!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
-                            ),
-                      ),
-                  ],
-                ),
+                ],
               ),
             ),
           ],
