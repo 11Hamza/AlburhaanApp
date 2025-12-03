@@ -297,7 +297,7 @@ async function getPatronAccount(patronId) {
 }
 
 // Export all functions
-module.exports = {
+export {
   kohaRequest,
   validateCredentials,
   getPatronByCardNumber,

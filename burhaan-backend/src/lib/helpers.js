@@ -3,13 +3,13 @@
  * Common helper functions used across the application
  */
 
-const QRCode = require('qrcode');
-const bwipjs = require('bwip-js');
+import QRCode from 'qrcode';
+import bwipjs from 'bwip-js';
 
 /**
  * Generate QR Code as base64 data URL
  */
-async function generateQRCode(data, options = {}) {
+export async function generateQRCode(data, options = {}) {
   const defaultOptions = {
     width: 300,
     margin: 2,
@@ -32,7 +32,7 @@ async function generateQRCode(data, options = {}) {
 /**
  * Generate Barcode as base64 PNG
  */
-async function generateBarcode(data, options = {}) {
+export async function generateBarcode(data, options = {}) {
   const defaultOptions = {
     bcid: 'code128', // Barcode type
     text: data,
@@ -56,7 +56,7 @@ async function generateBarcode(data, options = {}) {
 /**
  * Format patron data for response (remove sensitive fields)
  */
-function formatPatronResponse(patron) {
+export function formatPatronResponse(patron) {
   if (!patron) return null;
 
   return {
@@ -85,7 +85,7 @@ function formatPatronResponse(patron) {
 /**
  * Format book/biblio data for response
  */
-function formatBookResponse(book) {
+export function formatBookResponse(book) {
   if (!book) return null;
 
   return {
@@ -112,7 +112,7 @@ function formatBookResponse(book) {
 /**
  * Format checkout/loan data for response
  */
-function formatCheckoutResponse(checkout, bookDetails = null) {
+export function formatCheckoutResponse(checkout, bookDetails = null) {
   if (!checkout) return null;
 
   const dueDate = new Date(checkout.due_date);
@@ -138,7 +138,7 @@ function formatCheckoutResponse(checkout, bookDetails = null) {
 /**
  * Format hold data for response
  */
-function formatHoldResponse(hold) {
+export function formatHoldResponse(hold) {
   if (!hold) return null;
 
   return {
@@ -158,7 +158,7 @@ function formatHoldResponse(hold) {
 /**
  * Format library/branch data for response
  */
-function formatLibraryResponse(library) {
+export function formatLibraryResponse(library) {
   if (!library) return null;
 
   return {
@@ -183,7 +183,7 @@ function formatLibraryResponse(library) {
 /**
  * Parse pagination parameters from request
  */
-function getPaginationParams(searchParams) {
+export function getPaginationParams(searchParams) {
   const page = parseInt(searchParams.get('page') || '1', 10);
   const perPage = parseInt(searchParams.get('per_page') || '10', 10);
 
@@ -196,7 +196,7 @@ function getPaginationParams(searchParams) {
 /**
  * Create paginated response
  */
-function paginatedResponse(data, page, perPage, total = null) {
+export function paginatedResponse(data, page, perPage, total = null) {
   return {
     success: true,
     data,
@@ -213,7 +213,7 @@ function paginatedResponse(data, page, perPage, total = null) {
 /**
  * Validate required fields
  */
-function validateRequired(body, fields) {
+export function validateRequired(body, fields) {
   const missing = fields.filter(field => !body[field]);
 
   if (missing.length > 0) {
@@ -229,20 +229,6 @@ function validateRequired(body, fields) {
 /**
  * Sleep utility for rate limiting
  */
-function sleep(ms) {
+export function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
-
-module.exports = {
-  generateQRCode,
-  generateBarcode,
-  formatPatronResponse,
-  formatBookResponse,
-  formatCheckoutResponse,
-  formatHoldResponse,
-  formatLibraryResponse,
-  getPaginationParams,
-  paginatedResponse,
-  validateRequired,
-  sleep,
-};

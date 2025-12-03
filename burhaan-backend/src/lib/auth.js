@@ -3,7 +3,7 @@
  * Handles JWT token generation, validation, and session management
  */
 
-const jwt = require('jsonwebtoken');
+import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
@@ -11,7 +11,7 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 /**
  * Generate JWT token for a patron
  */
-function generateToken(patron) {
+export function generateToken(patron) {
   const payload = {
     patronId: patron.patron_id,
     cardNumber: patron.cardnumber,
@@ -31,7 +31,7 @@ function generateToken(patron) {
 /**
  * Verify and decode JWT token
  */
-function verifyToken(token) {
+export function verifyToken(token) {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     return { valid: true, decoded, error: null };
@@ -43,7 +43,7 @@ function verifyToken(token) {
 /**
  * Extract token from Authorization header
  */
-function extractToken(authHeader) {
+export function extractToken(authHeader) {
   if (!authHeader) return null;
 
   if (authHeader.startsWith('Bearer ')) {
@@ -56,7 +56,7 @@ function extractToken(authHeader) {
 /**
  * Middleware helper to get current user from request
  */
-function getCurrentUser(request) {
+export function getCurrentUser(request) {
   const authHeader = request.headers.get('authorization');
   const token = extractToken(authHeader);
 
@@ -76,7 +76,7 @@ function getCurrentUser(request) {
 /**
  * Calculate token expiry date
  */
-function getTokenExpiry() {
+export function getTokenExpiry() {
   const match = JWT_EXPIRES_IN.match(/^(\d+)([dhms])$/);
   if (!match) {
     // Default to 7 days
@@ -99,14 +99,14 @@ function getTokenExpiry() {
 /**
  * Create standardized API response
  */
-function apiResponse(data, status = 200) {
+export function apiResponse(data, status = 200) {
   return Response.json(data, { status });
 }
 
 /**
  * Create error response
  */
-function errorResponse(message, status = 400, code = null) {
+export function errorResponse(message, status = 400, code = null) {
   return Response.json({
     success: false,
     error: message,
@@ -117,7 +117,7 @@ function errorResponse(message, status = 400, code = null) {
 /**
  * Create success response
  */
-function successResponse(data, message = null) {
+export function successResponse(data, message = null) {
   return Response.json({
     success: true,
     message,
@@ -128,7 +128,7 @@ function successResponse(data, message = null) {
 /**
  * Require authentication middleware helper
  */
-function requireAuth(request) {
+export function requireAuth(request) {
   const { authenticated, user, error } = getCurrentUser(request);
 
   if (!authenticated) {
@@ -140,15 +140,3 @@ function requireAuth(request) {
 
   return { authorized: true, user };
 }
-
-module.exports = {
-  generateToken,
-  verifyToken,
-  extractToken,
-  getCurrentUser,
-  getTokenExpiry,
-  apiResponse,
-  errorResponse,
-  successResponse,
-  requireAuth,
-};

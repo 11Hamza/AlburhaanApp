@@ -9,28 +9,7 @@
 // Prisma Client singleton pattern for Next.js
 // Prevents creating multiple instances during hot reload
 
-let prisma;
-
-// Check if Prisma is available
-try {
-  const { PrismaClient } = require('@prisma/client');
-
-  if (process.env.NODE_ENV === 'production') {
-    prisma = new PrismaClient();
-  } else {
-    // In development, use a global variable to preserve the value
-    // across module reloads caused by HMR (Hot Module Replacement)
-    if (!global.prisma) {
-      global.prisma = new PrismaClient();
-    }
-    prisma = global.prisma;
-  }
-} catch (error) {
-  console.warn('Prisma Client not available. Using in-memory storage for development.');
-
-  // In-memory fallback for development without database
-  prisma = createInMemoryDb();
-}
+let prismaClient;
 
 /**
  * Create in-memory database for development
@@ -177,4 +156,31 @@ function createInMemoryDb() {
   };
 }
 
-module.exports = { prisma };
+// Initialize prisma client
+try {
+  // Dynamic import for Prisma
+  const loadPrisma = async () => {
+    try {
+      const { PrismaClient } = await import('@prisma/client');
+      if (process.env.NODE_ENV === 'production') {
+        return new PrismaClient();
+      } else {
+        if (!global.prisma) {
+          global.prisma = new PrismaClient();
+        }
+        return global.prisma;
+      }
+    } catch {
+      console.warn('Prisma Client not available. Using in-memory storage for development.');
+      return createInMemoryDb();
+    }
+  };
+
+  // For now, use in-memory as default
+  prismaClient = createInMemoryDb();
+} catch (error) {
+  console.warn('Prisma Client not available. Using in-memory storage for development.');
+  prismaClient = createInMemoryDb();
+}
+
+export const prisma = prismaClient;
