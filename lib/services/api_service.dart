@@ -187,12 +187,16 @@ class ApiService {
     if (statusCode >= 200 && statusCode < 300) {
       // Success
       T? data;
-      if (fromJson != null && body != null) {
-        // Check if response has 'data' field (our API format)
-        final responseData = body['data'] ?? body;
+
+      // Extract 'data' field if response has our API format
+      final responseData = (body is Map && body.containsKey('data'))
+          ? body['data']
+          : body;
+
+      if (fromJson != null && responseData != null) {
         data = fromJson(responseData);
-      } else if (body != null) {
-        data = body as T?;
+      } else if (responseData != null) {
+        data = responseData as T?;
       }
 
       return ApiResponse(
