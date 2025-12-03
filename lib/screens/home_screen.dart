@@ -16,14 +16,34 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final ScrollController _scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final booksProvider = context.read<BooksProvider>();
       booksProvider.loadBooks();
       booksProvider.loadFilters();
     });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      final booksProvider = context.read<BooksProvider>();
+      if (booksProvider.hasMore && !booksProvider.isLoadingMore) {
+        booksProvider.loadMoreBooks();
+      }
+    }
   }
 
   @override
@@ -36,6 +56,7 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Consumer<BooksProvider>(
         builder: (context, booksProvider, _) {
           return CustomScrollView(
+            controller: _scrollController,
             slivers: [
               // Modern App Bar with Gradient
               SliverAppBar(
@@ -271,19 +292,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
 
-              // Load More Trigger
-              if (booksProvider.books.isNotEmpty && booksProvider.hasMore)
-                SliverToBoxAdapter(
+              // Loading More Indicator
+              if (booksProvider.isLoadingMore)
+                const SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Center(
-                      child: booksProvider.isLoadingMore
-                          ? const CircularProgressIndicator()
-                          : TextButton(
-                              onPressed: () => booksProvider.loadMoreBooks(),
-                              child: const Text('Load More'),
-                            ),
-                    ),
+                    padding: EdgeInsets.all(24),
+                    child: Center(child: CircularProgressIndicator()),
                   ),
                 ),
             ],
