@@ -77,29 +77,47 @@ async function kohaRequest(endpoint, options = {}, userCredentials = null) {
 }
 
 /**
- * Validate user credentials against Koha
+ * Validate user credentials against Koha using password validation endpoint
  */
 async function validateCredentials(cardNumber, password) {
-  // Try to fetch patron info with provided credentials
-  const result = await kohaRequest('/patrons', {
-    method: 'GET',
-  }, { username: cardNumber, password });
+  try {
+    // Use Koha's password validation endpoint
+    const url = `${KOHA_BASE_URL}/auth/password/validation`;
 
-  return result.success;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': getBasicAuthHeader(),
+      },
+      body: JSON.stringify({
+        identifier: cardNumber,
+        password: password,
+      }),
+    });
+
+    // 204 No Content means valid credentials
+    // 400 means invalid credentials
+    return response.status === 204 || response.status === 200;
+  } catch (error) {
+    console.error('Credential validation error:', error);
+    return false;
+  }
 }
 
 /**
- * Get patron by card number
+ * Get patron by card number (uses system credentials)
  */
 async function getPatronByCardNumber(cardNumber) {
   const query = JSON.stringify({ cardnumber: cardNumber });
   const result = await kohaRequest(`/patrons?q=${encodeURIComponent(query)}`);
 
   if (result.success && result.data && result.data.length > 0) {
-    return { success: true, data: result.data[0] };
+    return result.data[0];
   }
 
-  return { success: false, error: 'Patron not found', data: null };
+  return null;
 }
 
 /**

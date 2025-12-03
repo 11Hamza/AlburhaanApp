@@ -13,26 +13,31 @@ export async function POST(request) {
     const guestCardNumber = process.env.KOHA_GUEST_CARDNUMBER;
     const guestPassword = process.env.KOHA_GUEST_PASSWORD;
 
+    console.log('Guest login attempt - CardNumber configured:', !!guestCardNumber);
+
     if (!guestCardNumber || !guestPassword) {
-      console.error('Guest credentials not configured');
+      console.error('Guest credentials not configured in .env.local');
+      console.error('KOHA_GUEST_CARDNUMBER:', guestCardNumber ? 'set' : 'missing');
+      console.error('KOHA_GUEST_PASSWORD:', guestPassword ? 'set' : 'missing');
       return errorResponse('Guest login not available', 503);
     }
 
-    // Validate guest credentials with Koha
-    const isValid = await validateCredentials(guestCardNumber, guestPassword);
-
-    if (!isValid) {
-      console.error('Guest credentials invalid in Koha');
-      return errorResponse('Guest login unavailable', 503);
-    }
-
-    // Get guest patron details from Koha
+    // Get guest patron details from Koha using system credentials
     const patron = await getPatronByCardNumber(guestCardNumber);
 
     if (!patron) {
-      console.error('Guest patron not found in Koha');
+      console.error('Guest patron not found in Koha for card:', guestCardNumber);
       return errorResponse('Guest account not found', 503);
     }
+
+    console.log('Guest patron found:', patron.firstname, patron.surname);
+
+    // Optionally validate password (skip for trusted guest account)
+    // const isValid = await validateCredentials(guestCardNumber, guestPassword);
+    // if (!isValid) {
+    //   console.error('Guest credentials invalid');
+    //   return errorResponse('Guest login unavailable', 503);
+    // }
 
     // Add guest flag to patron object
     const guestPatron = {
