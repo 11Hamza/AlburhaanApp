@@ -6,6 +6,7 @@ import '../providers/auth_provider.dart';
 import '../models/book.dart';
 import 'book_detail_screen.dart';
 import 'search_screen.dart';
+import 'media_viewer_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -734,6 +735,84 @@ class _BookPreviewSheet extends StatelessWidget {
                       ),
                     ],
                   ),
+                  // Media Buttons Section
+                  if (_hasAnyMedia(book)) ...[
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.play_circle_outline, size: 18, color: colorScheme.primary),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Available Media',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              if (book.youtubeUrl != null && book.youtubeUrl!.isNotEmpty)
+                                _MediaButton(
+                                  icon: Icons.play_circle_filled,
+                                  label: 'Video',
+                                  color: Colors.red,
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => MediaViewerScreen(book: book),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              if (book.pdfUrl != null && book.pdfUrl!.isNotEmpty)
+                                _MediaButton(
+                                  icon: Icons.picture_as_pdf,
+                                  label: 'PDF',
+                                  color: Colors.orange,
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => MediaViewerScreen(book: book),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              if (book.ebookUrl != null && book.ebookUrl!.isNotEmpty)
+                                _MediaButton(
+                                  icon: Icons.menu_book,
+                                  label: 'E-Book',
+                                  color: Colors.green,
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => MediaViewerScreen(book: book),
+                                      ),
+                                    );
+                                  },
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 24),
                   // Action Buttons
                   Row(
@@ -778,6 +857,60 @@ class _BookPreviewSheet extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  bool _hasAnyMedia(Book book) {
+    return (book.youtubeUrl != null && book.youtubeUrl!.isNotEmpty) ||
+        (book.pdfUrl != null && book.pdfUrl!.isNotEmpty) ||
+        (book.ebookUrl != null && book.ebookUrl!.isNotEmpty);
+  }
+}
+
+// Media Button Widget
+class _MediaButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _MediaButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 12),
+      child: Material(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, color: color, size: 20),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

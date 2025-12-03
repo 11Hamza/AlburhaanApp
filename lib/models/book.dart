@@ -15,6 +15,7 @@ class Book {
   final String? imageUrl;
   final String? ebookUrl;
   final String? youtubeUrl;
+  final String? pdfUrl;
 
   Book({
     required this.biblioId,
@@ -33,6 +34,7 @@ class Book {
     this.imageUrl,
     this.ebookUrl,
     this.youtubeUrl,
+    this.pdfUrl,
   });
 
   factory Book.fromJson(Map<String, dynamic> json) {
@@ -55,6 +57,7 @@ class Book {
       imageUrl: json['imageUrl'],
       ebookUrl: json['ebookUrl'],
       youtubeUrl: json['youtubeUrl'],
+      pdfUrl: json['pdfUrl'],
     );
   }
 
@@ -76,6 +79,7 @@ class Book {
       'imageUrl': imageUrl,
       'ebookUrl': ebookUrl,
       'youtubeUrl': youtubeUrl,
+      'pdfUrl': pdfUrl,
     };
   }
 }

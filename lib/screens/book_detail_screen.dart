@@ -6,6 +6,7 @@ import '../providers/books_provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/user_service.dart';
 import '../models/library.dart';
+import 'media_viewer_screen.dart';
 
 class BookDetailScreen extends StatefulWidget {
   final int biblioId;
@@ -213,12 +214,17 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                             ),
                           ),
                           const SizedBox(width: 12),
-                          if (book.ebookUrl != null)
+                          if (_hasAnyMedia(book))
                             Expanded(
                               child: OutlinedButton.icon(
-                                onPressed: () => _openEbook(book.ebookUrl!),
-                                icon: const Icon(Icons.menu_book),
-                                label: const Text('Read'),
+                                onPressed: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => MediaViewerScreen(book: book),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.play_circle_outline),
+                                label: const Text('Media'),
                               ),
                             ),
                         ],
@@ -267,13 +273,64 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                         Text(book.notes!),
                       ],
 
-                      // YouTube Link
-                      if (book.youtubeUrl != null) ...[
+                      // Media Section
+                      if (_hasAnyMedia(book)) ...[
                         const SizedBox(height: 24),
-                        OutlinedButton.icon(
-                          onPressed: () => _openUrl(book.youtubeUrl!),
-                          icon: const Icon(Icons.play_circle),
-                          label: const Text('Watch Video'),
+                        Text(
+                          'Available Media',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: 12),
+                        Card(
+                          child: Column(
+                            children: [
+                              if (book.youtubeUrl != null)
+                                ListTile(
+                                  leading: Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Icon(Icons.play_circle_filled, color: Colors.red),
+                                  ),
+                                  title: const Text('Video Lecture'),
+                                  subtitle: const Text('Watch on YouTube'),
+                                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                                  onTap: () => _openUrl(book.youtubeUrl!),
+                                ),
+                              if (book.pdfUrl != null)
+                                ListTile(
+                                  leading: Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Icon(Icons.picture_as_pdf, color: Colors.orange),
+                                  ),
+                                  title: const Text('PDF Document'),
+                                  subtitle: const Text('View or Download'),
+                                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                                  onTap: () => _openUrl(book.pdfUrl!),
+                                ),
+                              if (book.ebookUrl != null)
+                                ListTile(
+                                  leading: Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Icon(Icons.menu_book, color: Colors.green),
+                                  ),
+                                  title: const Text('E-Book'),
+                                  subtitle: const Text('Read Online'),
+                                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                                  onTap: () => _openUrl(book.ebookUrl!),
+                                ),
+                            ],
+                          ),
                         ),
                       ],
 
@@ -352,6 +409,12 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
     if (await canLaunchUrl(Uri.parse(url))) {
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
     }
+  }
+
+  bool _hasAnyMedia(book) {
+    return book.youtubeUrl != null ||
+        book.pdfUrl != null ||
+        book.ebookUrl != null;
   }
 }
 
