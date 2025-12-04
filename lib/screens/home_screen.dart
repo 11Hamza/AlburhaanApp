@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../providers/books_provider.dart';
 import '../providers/auth_provider.dart';
 import '../models/book.dart';
-import 'book_detail_screen.dart';
 import 'search_screen.dart';
-import 'media_viewer_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -450,7 +449,7 @@ class _BookCard extends StatelessWidget {
   }
 }
 
-// Book Preview Sheet
+// Full Book Details Popup - shows ALL details
 class _BookPreviewSheet extends StatelessWidget {
   final Book book;
 
@@ -459,7 +458,7 @@ class _BookPreviewSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: MediaQuery.of(context).size.height * 0.6,
+      height: MediaQuery.of(context).size.height * 0.85,
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -481,31 +480,29 @@ class _BookPreviewSheet extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Header with cover
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
-                        width: 90,
-                        height: 130,
+                        width: 100,
+                        height: 150,
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           color: const Color(0xFFEEEEEE),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withOpacity(0.1),
-                              blurRadius: 6,
+                              blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
                           ],
                         ),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           child: book.imageUrl != null
-                              ? CachedNetworkImage(
-                                  imageUrl: book.imageUrl!,
-                                  fit: BoxFit.cover,
-                                )
-                              : const Icon(Icons.book, size: 36, color: Colors.grey),
+                              ? CachedNetworkImage(imageUrl: book.imageUrl!, fit: BoxFit.cover)
+                              : const Icon(Icons.book, size: 40, color: Colors.grey),
                         ),
                       ),
                       const SizedBox(width: 16),
@@ -513,101 +510,65 @@ class _BookPreviewSheet extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              book.title,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            if (book.author != null)
-                              _InfoRow(Icons.person_outline, book.author!),
-                            if (book.publicationYear != null)
-                              _InfoRow(Icons.calendar_today_outlined, book.publicationYear!),
-                            if (book.isbn != null)
-                              _InfoRow(Icons.qr_code, book.isbn!),
+                            Text(book.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                            if (book.author != null) ...[
+                              const SizedBox(height: 8),
+                              _IconText(Icons.person_outline, book.author!),
+                            ],
+                            if (book.publicationYear != null) ...[
+                              const SizedBox(height: 6),
+                              _IconText(Icons.calendar_today_outlined, book.publicationYear!),
+                            ],
+                            if (book.publisher != null) ...[
+                              const SizedBox(height: 6),
+                              _IconText(Icons.business_outlined, book.publisher!),
+                            ],
                           ],
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => BookDetailScreen(biblioId: book.biblioId),
-                              ),
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1A365D),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: const Text('View Details'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () {},
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: const Text('Place Hold'),
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (_hasAnyMedia(book)) ...[
-                    const SizedBox(height: 16),
-                    const Divider(),
+
+                  const SizedBox(height: 24),
+
+                  // Book Details Section
+                  const Text('Book Details', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  _DetailRow('ISBN', book.isbn),
+                  _DetailRow('Call Number', book.callNumber),
+                  _DetailRow('Language', book.language),
+                  _DetailRow('Description', book.physicalDescription),
+                  _DetailRow('Series', book.series),
+                  if (book.subjects.isNotEmpty) _DetailRow('Subjects', book.subjects.join(', ')),
+                  _DetailRow('Notes', book.notes),
+
+                  // Media Section
+                  if (_hasAnyMedia()) ...[
+                    const SizedBox(height: 24),
+                    const Text('Available Media', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 12),
-                    const Text(
-                      'Available Media',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        if (book.youtubeUrl != null)
-                          _MediaChip(Icons.play_circle_fill, 'Video', Colors.red, () {
-                            Navigator.pop(context);
-                            Navigator.push(context, MaterialPageRoute(
-                              builder: (_) => MediaViewerScreen(book: book),
-                            ));
-                          }),
-                        if (book.pdfUrl != null)
-                          _MediaChip(Icons.picture_as_pdf, 'PDF', Colors.orange, () {
-                            Navigator.pop(context);
-                            Navigator.push(context, MaterialPageRoute(
-                              builder: (_) => MediaViewerScreen(book: book),
-                            ));
-                          }),
-                        if (book.ebookUrl != null)
-                          _MediaChip(Icons.menu_book, 'E-Book', Colors.green, () {
-                            Navigator.pop(context);
-                            Navigator.push(context, MaterialPageRoute(
-                              builder: (_) => MediaViewerScreen(book: book),
-                            ));
-                          }),
-                      ],
-                    ),
+                    if (book.youtubeUrl != null) _MediaTile(Icons.play_circle_fill, 'Watch Video', 'YouTube', Colors.red, () => _openUrl(book.youtubeUrl!)),
+                    if (book.pdfUrl != null) _MediaTile(Icons.picture_as_pdf, 'View PDF', 'Document', Colors.orange, () => _openUrl(book.pdfUrl!)),
+                    if (book.ebookUrl != null) _MediaTile(Icons.menu_book, 'Read E-Book', 'Online', Colors.green, () => _openUrl(book.ebookUrl!)),
                   ],
+
+                  const SizedBox(height: 24),
+
+                  // Action Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {},
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1A365D),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      child: const Text('Place Hold'),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
                 ],
               ),
             ),
@@ -617,46 +578,69 @@ class _BookPreviewSheet extends StatelessWidget {
     );
   }
 
-  bool _hasAnyMedia(Book book) {
-    return book.youtubeUrl != null || book.pdfUrl != null || book.ebookUrl != null;
+  bool _hasAnyMedia() => book.youtubeUrl != null || book.pdfUrl != null || book.ebookUrl != null;
+
+  Future<void> _openUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
-  Widget _InfoRow(IconData icon, String text) {
+  Widget _IconText(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: Colors.grey[600]),
+        const SizedBox(width: 6),
+        Expanded(child: Text(text, style: TextStyle(fontSize: 14, color: Colors.grey[700]), maxLines: 2)),
+      ],
+    );
+  }
+
+  Widget _DetailRow(String label, String? value) {
+    if (value == null || value.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(bottom: 5),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 14, color: Colors.grey[600]),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
+          SizedBox(width: 110, child: Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[600]))),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
         ],
       ),
     );
   }
 
-  Widget _MediaChip(IconData icon, String label, Color color, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(width: 4),
-            Text(label, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500)),
+  Widget _MediaTile(IconData icon, String title, String subtitle, Color color, VoidCallback onTap) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                  ],
+                ),
+              ),
+              Icon(Icons.open_in_new, color: Colors.grey[400], size: 20),
           ],
         ),
       ),
