@@ -16,14 +16,32 @@ class _SearchScreenState extends State<SearchScreen> {
   final _searchController = TextEditingController();
   final _authorController = TextEditingController();
   final _isbnController = TextEditingController();
+  final _scrollController = ScrollController();
   bool _showAdvanced = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
 
   @override
   void dispose() {
     _searchController.dispose();
     _authorController.dispose();
     _isbnController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      final booksProvider = context.read<BooksProvider>();
+      if (booksProvider.hasMore && !booksProvider.isLoadingMore) {
+        booksProvider.loadMoreBooks();
+      }
+    }
   }
 
   void _search() {
@@ -148,9 +166,16 @@ class _SearchScreenState extends State<SearchScreen> {
                 }
 
                 return ListView.builder(
+                  controller: _scrollController,
                   padding: const EdgeInsets.all(16),
-                  itemCount: booksProvider.books.length,
+                  itemCount: booksProvider.books.length + (booksProvider.isLoadingMore ? 1 : 0),
                   itemBuilder: (context, index) {
+                    if (index >= booksProvider.books.length) {
+                      return const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
                     final book = booksProvider.books[index];
                     return _BookListTile(book: book);
                   },

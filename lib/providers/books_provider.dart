@@ -14,6 +14,7 @@ class BooksProvider extends ChangeNotifier {
   int _currentPage = 1;
   bool _hasMore = true;
   String? _currentQuery;
+  int? _totalBooks; // Total book count from API
 
   // Filter options
   List<FilterOption> _subjects = [];
@@ -34,6 +35,7 @@ class BooksProvider extends ChangeNotifier {
   bool get isLoadingMore => _isLoadingMore;
   String? get error => _error;
   bool get hasMore => _hasMore;
+  int? get totalBooks => _totalBooks;
 
   List<FilterOption> get subjects => _subjects;
   List<FilterOption> get classifications => _classifications;
@@ -55,6 +57,7 @@ class BooksProvider extends ChangeNotifier {
     try {
       final result = await _booksService.getBooks(
         page: 1,
+        perPage: 20,
         query: query,
         subject: _selectedSubject,
         language: _selectedLanguage,
@@ -62,6 +65,7 @@ class BooksProvider extends ChangeNotifier {
 
       _books = result.items;
       _hasMore = result.hasMore;
+      _totalBooks = result.total;
       _currentPage = 1;
     } catch (e) {
       _error = e.toString();
@@ -81,6 +85,7 @@ class BooksProvider extends ChangeNotifier {
     try {
       final result = await _booksService.getBooks(
         page: _currentPage + 1,
+        perPage: 20,
         query: _currentQuery,
         subject: _selectedSubject,
         language: _selectedLanguage,
@@ -88,6 +93,7 @@ class BooksProvider extends ChangeNotifier {
 
       _books.addAll(result.items);
       _hasMore = result.hasMore;
+      if (result.total != null) _totalBooks = result.total;
       _currentPage++;
     } catch (e) {
       _error = e.toString();
