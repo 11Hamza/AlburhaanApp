@@ -7,6 +7,13 @@ const KOHA_BASE_URL = process.env.KOHA_BASE_URL || 'https://library.al-burhaan.o
 const KOHA_USERNAME = process.env.KOHA_USERNAME;
 const KOHA_PASSWORD = process.env.KOHA_PASSWORD;
 
+// Log config on first load (for debugging)
+console.log('Koha Config:', {
+  baseUrl: KOHA_BASE_URL,
+  usernameSet: !!KOHA_USERNAME,
+  passwordSet: !!KOHA_PASSWORD,
+});
+
 /**
  * Create Basic Auth header
  */
@@ -16,10 +23,14 @@ function getBasicAuthHeader(username = KOHA_USERNAME, password = KOHA_PASSWORD) 
 }
 
 /**
- * Make authenticated request to Koha API
+ * Make authenticated request to Koha API with timeout
  */
 async function kohaRequest(endpoint, options = {}, userCredentials = null) {
   const url = `${KOHA_BASE_URL}${endpoint}`;
+
+  // Add timeout using AbortController
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
   const headers = {
     'Accept': 'application/json',
@@ -35,10 +46,13 @@ async function kohaRequest(endpoint, options = {}, userCredentials = null) {
   }
 
   try {
+    console.log('Koha request:', url);
     const response = await fetch(url, {
       ...options,
       headers,
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
     // Handle different response types
     const contentType = response.headers.get('content-type');
@@ -66,7 +80,8 @@ async function kohaRequest(endpoint, options = {}, userCredentials = null) {
       error: null,
     };
   } catch (error) {
-    console.error('Koha API Error:', error);
+    clearTimeout(timeoutId);
+    console.error('Koha API Error:', error.name, error.message);
     return {
       success: false,
       status: 500,
