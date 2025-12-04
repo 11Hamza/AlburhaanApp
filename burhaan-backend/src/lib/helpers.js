@@ -88,6 +88,23 @@ export function formatPatronResponse(patron) {
 export function formatBookResponse(book) {
   if (!book) return null;
 
+  // Detect URL type from the generic url field
+  let ebookUrl = book.ebook_url || null;
+  let youtubeUrl = book.youtube_url || null;
+  let pdfUrl = book.pdf_url || null;
+
+  // Check if generic url field contains specific media types
+  if (book.url) {
+    const url = book.url.toLowerCase();
+    if (url.includes('youtube.com') || url.includes('youtu.be')) {
+      youtubeUrl = youtubeUrl || book.url;
+    } else if (url.includes('.pdf')) {
+      pdfUrl = pdfUrl || book.url;
+    } else {
+      ebookUrl = ebookUrl || book.url;
+    }
+  }
+
   return {
     biblioId: book.biblio_id,
     title: book.title,
@@ -104,9 +121,9 @@ export function formatBookResponse(book) {
     notes: book.notes,
     // Generate image URL
     imageUrl: `https://library.al-burhaan.org/cgi-bin/koha/opac-image.pl?thumbnail=1&biblionumber=${book.biblio_id}&filetype=image`,
-    ebookUrl: book.ebook_url || book.url || null,
-    youtubeUrl: book.youtube_url || null,
-    pdfUrl: book.pdf_url || null,
+    ebookUrl,
+    youtubeUrl,
+    pdfUrl,
   };
 }
 
