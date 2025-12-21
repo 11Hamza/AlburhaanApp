@@ -5,6 +5,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../providers/books_provider.dart';
 import '../providers/auth_provider.dart';
 import '../models/book.dart';
+import '../models/reading_list.dart';
+import '../services/reading_list_service.dart';
 import 'search_screen.dart';
 import 'ebooks_screen.dart';
 import 'videos_screen.dart';
@@ -562,10 +564,134 @@ class _BookCard extends StatelessWidget {
 }
 
 // Full Book Details Popup - shows ALL details
-class _BookPreviewSheet extends StatelessWidget {
+class _BookPreviewSheet extends StatefulWidget {
   final Book book;
 
   const _BookPreviewSheet({required this.book});
+
+  @override
+  State<_BookPreviewSheet> createState() => _BookPreviewSheetState();
+}
+
+class _BookPreviewSheetState extends State<_BookPreviewSheet> {
+  final ReadingListService _readingListService = ReadingListService();
+
+  Book get book => widget.book;
+
+  Future<void> _showAddToReadingListDialog() async {
+    final authProvider = context.read<AuthProvider>();
+    if (authProvider.isGuest) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please login to use reading lists')),
+      );
+      return;
+    }
+
+    // Fetch reading lists
+    final lists = await _readingListService.getReadingLists();
+
+    if (!mounted) return;
+
+    if (lists.isEmpty) {
+      // Offer to create a new list
+      final result = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('No Reading Lists'),
+          content: const Text('You don\'t have any reading lists yet. Would you like to create one?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                await _showCreateListDialog();
+              },
+              child: const Text('Create List'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // Show list selection dialog
+    final selectedList = await showDialog<ReadingList>(
+      context: context,
+      builder: (context) => _ReadingListSelectionDialog(
+        lists: lists,
+        onCreateNew: () async {
+          Navigator.pop(context);
+          await _showCreateListDialog();
+        },
+      ),
+    );
+
+    if (selectedList != null && mounted) {
+      await _addBookToList(selectedList);
+    }
+  }
+
+  Future<void> _showCreateListDialog() async {
+    final nameController = TextEditingController();
+
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Create Reading List'),
+        content: TextField(
+          controller: nameController,
+          decoration: const InputDecoration(
+            labelText: 'List Name',
+            hintText: 'e.g., Books to Read',
+          ),
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, nameController.text.trim()),
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+
+    if (name != null && name.isNotEmpty && mounted) {
+      final newList = await _readingListService.createReadingList(name: name);
+      if (newList != null && mounted) {
+        await _addBookToList(newList);
+      }
+    }
+  }
+
+  Future<void> _addBookToList(ReadingList list) async {
+    final item = await _readingListService.addBookToList(
+      listId: list.id,
+      biblioId: book.biblioId,
+    );
+
+    if (mounted) {
+      if (item != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Added to "${list.name}"')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to add book (may already be in list)'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -666,19 +792,33 @@ class _BookPreviewSheet extends StatelessWidget {
 
                   const SizedBox(height: 24),
 
-                  // Action Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {},
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1A365D),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  // Action Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {},
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF1A365D),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          child: const Text('Place Hold'),
+                        ),
                       ),
-                      child: const Text('Place Hold'),
-                    ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: _showAddToReadingListDialog,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF7B1FA2),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: const Icon(Icons.playlist_add),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 20),
                 ],
@@ -756,6 +896,50 @@ class _BookPreviewSheet extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// Reading List Selection Dialog
+class _ReadingListSelectionDialog extends StatelessWidget {
+  final List<ReadingList> lists;
+  final VoidCallback onCreateNew;
+
+  const _ReadingListSelectionDialog({
+    required this.lists,
+    required this.onCreateNew,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Add to Reading List'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ...lists.map((list) => ListTile(
+              leading: const Icon(Icons.list_alt),
+              title: Text(list.name),
+              subtitle: Text('${list.itemCount} books'),
+              onTap: () => Navigator.pop(context, list),
+            )),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.add, color: Colors.green),
+              title: const Text('Create New List'),
+              onTap: onCreateNew,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+      ],
     );
   }
 }

@@ -6,6 +6,7 @@ import 'login_screen.dart';
 import 'library_card_screen.dart';
 import 'favorites_screen.dart';
 import 'reading_lists_screen.dart';
+import 'notification_settings_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -150,6 +151,17 @@ class ProfileScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const ReadingListsScreen()),
+                );
+              },
+            ),
+            _MenuItem(
+              icon: Icons.notifications,
+              title: 'Notifications',
+              subtitle: 'Manage notification preferences',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const NotificationSettingsScreen()),
                 );
               },
             ),
