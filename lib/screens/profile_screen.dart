@@ -5,6 +5,7 @@ import '../providers/settings_provider.dart';
 import 'login_screen.dart';
 import 'library_card_screen.dart';
 import 'favorites_screen.dart';
+import 'reading_lists_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -138,6 +139,17 @@ class ProfileScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const FavoritesScreen()),
+                );
+              },
+            ),
+            _MenuItem(
+              icon: Icons.list_alt,
+              title: 'Reading Lists',
+              subtitle: 'Organize your reading',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ReadingListsScreen()),
                 );
               },
             ),

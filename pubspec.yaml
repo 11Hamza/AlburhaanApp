@@ -40,6 +40,16 @@ dependencies:
   # Icons
   cupertino_icons: ^1.0.6
 
+  # SSO Authentication
+  google_sign_in: ^6.2.1
+
+  # YouTube Player
+  youtube_player_flutter: ^9.0.1
+
+  # Firebase (Push Notifications)
+  firebase_core: ^2.24.2
+  firebase_messaging: ^14.7.10
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

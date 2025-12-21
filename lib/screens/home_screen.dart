@@ -6,6 +6,8 @@ import '../providers/books_provider.dart';
 import '../providers/auth_provider.dart';
 import '../models/book.dart';
 import 'search_screen.dart';
+import 'ebooks_screen.dart';
+import 'videos_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -147,6 +149,42 @@ class _HomeScreenState extends State<HomeScreen> {
                           title: 'Languages',
                           value: '${booksProvider.languages.length}',
                           color: const Color(0xFFE65100),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Digital Content Quick Access
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _QuickAccessCard(
+                          icon: Icons.menu_book,
+                          title: 'eBooks',
+                          subtitle: 'Digital library',
+                          color: const Color(0xFF7B1FA2),
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const EbooksScreen()),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _QuickAccessCard(
+                          icon: Icons.play_circle_filled,
+                          title: 'Videos',
+                          subtitle: 'Watch & learn',
+                          color: const Color(0xFFC62828),
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const VideosScreen()),
+                          ),
                         ),
                       ),
                     ],
@@ -352,6 +390,80 @@ class _StatsCard extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
         ],
+      ),
+    );
+  }
+}
+
+// Quick Access Card for Digital Content
+class _QuickAccessCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _QuickAccessCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              color,
+              color.withOpacity(0.8),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.white, size: 28),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios, color: Colors.white.withOpacity(0.7), size: 16),
+          ],
+        ),
       ),
     );
   }
