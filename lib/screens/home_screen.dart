@@ -687,7 +687,7 @@ class _BookPreviewSheetState extends State<_BookPreviewSheet> {
 
     final result = await _userService.placeHold(
       biblioId: book.biblioId,
-      pickupLibraryId: library.branchCode,
+      pickupLibraryId: library.libraryId,
     );
 
     if (mounted) {
@@ -1143,7 +1143,8 @@ class _BookPreviewSheetState extends State<_BookPreviewSheet> {
                 ),
               ),
               Icon(Icons.open_in_new, color: Colors.grey[400], size: 20),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1170,7 +1171,7 @@ class _LibrarySelectionDialog extends StatelessWidget {
             return ListTile(
               leading: const Icon(Icons.location_on),
               title: Text(library.name),
-              subtitle: library.address != null ? Text(library.address!, maxLines: 1, overflow: TextOverflow.ellipsis) : null,
+              subtitle: library.fullAddress.isNotEmpty ? Text(library.fullAddress, maxLines: 1, overflow: TextOverflow.ellipsis) : null,
               onTap: () => Navigator.pop(context, library),
             );
           },
