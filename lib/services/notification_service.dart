@@ -16,7 +16,8 @@ class NotificationService {
   factory NotificationService() => _instance;
   NotificationService._internal();
 
-  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  // Lazy getter - only access after Firebase is initialized
+  FirebaseMessaging get _messaging => FirebaseMessaging.instance;
   final ApiService _api = ApiService();
 
   String? _fcmToken;
