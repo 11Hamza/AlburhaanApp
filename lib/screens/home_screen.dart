@@ -6,7 +6,10 @@ import '../providers/books_provider.dart';
 import '../providers/auth_provider.dart';
 import '../models/book.dart';
 import '../models/reading_list.dart';
+import '../models/library.dart';
 import '../services/reading_list_service.dart';
+import '../services/user_service.dart';
+import '../services/books_service.dart';
 import 'search_screen.dart';
 import 'ebooks_screen.dart';
 import 'videos_screen.dart';
@@ -575,8 +578,136 @@ class _BookPreviewSheet extends StatefulWidget {
 
 class _BookPreviewSheetState extends State<_BookPreviewSheet> {
   final ReadingListService _readingListService = ReadingListService();
+  final UserService _userService = UserService();
+  final BooksService _booksService = BooksService();
 
   Book get book => widget.book;
+
+  // State
+  BookAvailability? _availability;
+  bool _isFavorite = false;
+  bool _isLoadingAvailability = true;
+  bool _isTogglingFavorite = false;
+  bool _isPlacingHold = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBookData();
+  }
+
+  Future<void> _loadBookData() async {
+    final authProvider = context.read<AuthProvider>();
+
+    // Load availability
+    final availability = await _booksService.getBookAvailability(book.biblioId);
+    if (mounted) {
+      setState(() {
+        _availability = availability;
+        _isLoadingAvailability = false;
+      });
+    }
+
+    // Check if favorited (only for logged in users)
+    if (!authProvider.isGuest) {
+      final isFav = await _userService.isFavorited(book.biblioId);
+      if (mounted) {
+        setState(() => _isFavorite = isFav);
+      }
+    }
+  }
+
+  Future<void> _toggleFavorite() async {
+    final authProvider = context.read<AuthProvider>();
+    if (authProvider.isGuest) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please login to save favorites')),
+      );
+      return;
+    }
+
+    setState(() => _isTogglingFavorite = true);
+
+    bool success;
+    if (_isFavorite) {
+      success = await _userService.removeFromFavorites(book.biblioId);
+    } else {
+      success = await _userService.addToFavorites(book.biblioId);
+    }
+
+    if (mounted) {
+      setState(() {
+        if (success) _isFavorite = !_isFavorite;
+        _isTogglingFavorite = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(success
+              ? (_isFavorite ? 'Added to favorites' : 'Removed from favorites')
+              : 'Failed to update favorites'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _showPlaceHoldDialog() async {
+    final authProvider = context.read<AuthProvider>();
+    if (authProvider.isGuest) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please login to place holds')),
+      );
+      return;
+    }
+
+    // Fetch libraries
+    final libraries = await _userService.getLibraries();
+    if (!mounted) return;
+
+    if (libraries.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No pickup locations available')),
+      );
+      return;
+    }
+
+    // Show library selection dialog
+    final selectedLibrary = await showDialog<Library>(
+      context: context,
+      builder: (context) => _LibrarySelectionDialog(libraries: libraries),
+    );
+
+    if (selectedLibrary != null && mounted) {
+      await _placeHold(selectedLibrary);
+    }
+  }
+
+  Future<void> _placeHold(Library library) async {
+    setState(() => _isPlacingHold = true);
+
+    final result = await _userService.placeHold(
+      biblioId: book.biblioId,
+      pickupLibraryId: library.branchCode,
+    );
+
+    if (mounted) {
+      setState(() => _isPlacingHold = false);
+
+      if (result.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Hold placed! Pickup at ${library.name}')),
+        );
+        Navigator.pop(context); // Close the sheet
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.error ?? 'Failed to place hold'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
   Future<void> _showAddToReadingListDialog() async {
     final authProvider = context.read<AuthProvider>();
@@ -594,7 +725,7 @@ class _BookPreviewSheetState extends State<_BookPreviewSheet> {
 
     if (lists.isEmpty) {
       // Offer to create a new list
-      final result = await showDialog<String>(
+      await showDialog<String>(
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('No Reading Lists'),
@@ -718,7 +849,7 @@ class _BookPreviewSheetState extends State<_BookPreviewSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header with cover
+                  // Header with cover and favorite button
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -748,9 +879,30 @@ class _BookPreviewSheetState extends State<_BookPreviewSheet> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(book.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Text(book.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                                ),
+                                // Favorite button
+                                IconButton(
+                                  onPressed: _isTogglingFavorite ? null : _toggleFavorite,
+                                  icon: _isTogglingFavorite
+                                      ? const SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                        )
+                                      : Icon(
+                                          _isFavorite ? Icons.favorite : Icons.favorite_border,
+                                          color: _isFavorite ? Colors.red : Colors.grey,
+                                        ),
+                                ),
+                              ],
+                            ),
                             if (book.author != null) ...[
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 4),
                               _IconText(Icons.person_outline, book.author!),
                             ],
                             if (book.publicationYear != null) ...[
@@ -767,7 +919,12 @@ class _BookPreviewSheetState extends State<_BookPreviewSheet> {
                     ],
                   ),
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
+
+                  // Availability Section
+                  _buildAvailabilitySection(),
+
+                  const SizedBox(height: 16),
 
                   // Book Details Section
                   const Text('Book Details', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -797,14 +954,20 @@ class _BookPreviewSheetState extends State<_BookPreviewSheet> {
                     children: [
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () {},
+                          onPressed: _isPlacingHold ? null : _showPlaceHoldDialog,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF1A365D),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
-                          child: const Text('Place Hold'),
+                          child: _isPlacingHold
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Text('Place Hold'),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -825,6 +988,93 @@ class _BookPreviewSheetState extends State<_BookPreviewSheet> {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAvailabilitySection() {
+    if (_isLoadingAvailability) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.grey[100],
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+            SizedBox(width: 8),
+            Text('Checking availability...'),
+          ],
+        ),
+      );
+    }
+
+    if (_availability == null) {
+      return const SizedBox.shrink();
+    }
+
+    final isAvailable = _availability!.isAvailable;
+    final availableCount = _availability!.availableCopies;
+    final totalCount = _availability!.totalCopies;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isAvailable ? Colors.green[50] : Colors.orange[50],
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isAvailable ? Colors.green[200]! : Colors.orange[200]!,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isAvailable ? Icons.check_circle : Icons.schedule,
+                color: isAvailable ? Colors.green[700] : Colors.orange[700],
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                isAvailable ? 'Available' : 'Not Available',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: isAvailable ? Colors.green[700] : Colors.orange[700],
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '$availableCount of $totalCount copies',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+          if (_availability!.branches.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: _availability!.branches.where((b) => b.available > 0).take(3).map((branch) {
+                return Chip(
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                  label: Text(
+                    '${branch.libraryName}: ${branch.available}',
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                  backgroundColor: Colors.white,
+                );
+              }).toList(),
+            ),
+          ],
         ],
       ),
     );
@@ -896,6 +1146,42 @@ class _BookPreviewSheetState extends State<_BookPreviewSheet> {
           ],
         ),
       ),
+    );
+  }
+}
+
+// Library Selection Dialog for Place Hold
+class _LibrarySelectionDialog extends StatelessWidget {
+  final List<Library> libraries;
+
+  const _LibrarySelectionDialog({required this.libraries});
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Select Pickup Location'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: ListView.builder(
+          shrinkWrap: true,
+          itemCount: libraries.length,
+          itemBuilder: (context, index) {
+            final library = libraries[index];
+            return ListTile(
+              leading: const Icon(Icons.location_on),
+              title: Text(library.name),
+              subtitle: library.address != null ? Text(library.address!, maxLines: 1, overflow: TextOverflow.ellipsis) : null,
+              onTap: () => Navigator.pop(context, library),
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+      ],
     );
   }
 }

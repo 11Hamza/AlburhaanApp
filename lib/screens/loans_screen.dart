@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/user_service.dart';
+import '../services/books_service.dart';
 import '../models/loan.dart';
 import 'book_detail_screen.dart';
 import 'holds_screen.dart';
@@ -23,17 +24,39 @@ class _LoansScreenState extends State<LoansScreen>
   bool _isLoading = true;
   bool _isRenewing = false;
 
+  // History tab state
+  List<LoanHistory> _history = [];
+  bool _isLoadingHistory = true;
+  bool _isLoadingMoreHistory = false;
+  int _historyPage = 1;
+  bool _hasMoreHistory = false;
+  final ScrollController _historyScrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _loadLoans();
+    _loadHistory();
+
+    // Add scroll listener for infinite scroll on history tab
+    _historyScrollController.addListener(_onHistoryScroll);
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _historyScrollController.dispose();
     super.dispose();
+  }
+
+  void _onHistoryScroll() {
+    if (_historyScrollController.position.pixels >=
+            _historyScrollController.position.maxScrollExtent - 200 &&
+        !_isLoadingMoreHistory &&
+        _hasMoreHistory) {
+      _loadMoreHistory();
+    }
   }
 
   Future<void> _loadLoans() async {
@@ -81,6 +104,36 @@ class _LoansScreenState extends State<LoansScreen>
     _loadLoans();
   }
 
+  Future<void> _loadHistory() async {
+    setState(() {
+      _isLoadingHistory = true;
+      _historyPage = 1;
+    });
+
+    final result = await _userService.getLoanHistory(page: 1, perPage: 20);
+    setState(() {
+      _history = result.items;
+      _hasMoreHistory = result.hasMore;
+      _isLoadingHistory = false;
+    });
+  }
+
+  Future<void> _loadMoreHistory() async {
+    if (_isLoadingMoreHistory) return;
+
+    setState(() => _isLoadingMoreHistory = true);
+
+    final nextPage = _historyPage + 1;
+    final result = await _userService.getLoanHistory(page: nextPage, perPage: 20);
+
+    setState(() {
+      _history.addAll(result.items);
+      _historyPage = nextPage;
+      _hasMoreHistory = result.hasMore;
+      _isLoadingMoreHistory = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
@@ -109,6 +162,7 @@ class _LoansScreenState extends State<LoansScreen>
           tabs: [
             Tab(text: 'Current (${_summary.total})'),
             const Tab(text: 'Holds'),
+            const Tab(text: 'History'),
           ],
         ),
         actions: [
@@ -132,6 +186,8 @@ class _LoansScreenState extends State<LoansScreen>
           _buildLoansTab(),
           // Holds Tab
           const HoldsScreen(),
+          // History Tab
+          _buildHistoryTab(),
         ],
       ),
     );
@@ -219,6 +275,66 @@ class _LoansScreenState extends State<LoansScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildHistoryTab() {
+    if (_isLoadingHistory) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_history.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.history,
+              size: 64,
+              color: Theme.of(context).colorScheme.outline,
+            ),
+            const SizedBox(height: 16),
+            const Text('No loan history'),
+            const SizedBox(height: 8),
+            Text(
+              'Books you\'ve borrowed will appear here',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadHistory,
+      child: ListView.builder(
+        controller: _historyScrollController,
+        padding: const EdgeInsets.all(16),
+        itemCount: _history.length + (_hasMoreHistory ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index == _history.length) {
+            return const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          final item = _history[index];
+          return _LoanHistoryCard(
+            history: item,
+            onTap: () {
+              if (item.biblioId != null) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => BookDetailScreen(biblioId: item.biblioId!),
+                  ),
+                );
+              }
+            },
+          );
+        },
       ),
     );
   }
@@ -337,6 +453,106 @@ class _LoanCard extends StatelessWidget {
                   OutlinedButton(
                     onPressed: loan.canRenew ? onRenew : null,
                     child: const Text('Renew'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LoanHistoryCard extends StatelessWidget {
+  final LoanHistory history;
+  final VoidCallback onTap;
+
+  const _LoanHistoryCard({
+    required this.history,
+    required this.onTap,
+  });
+
+  String _formatDate(String? dateString) {
+    if (dateString == null) return 'N/A';
+    final date = DateTime.tryParse(dateString);
+    if (date == null) return dateString;
+    return '${date.day}/${date.month}/${date.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      history.book?.title ?? 'Unknown Book',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.grey,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      'Returned',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (history.book?.author != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  history.book!.author!,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+              ],
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(
+                    Icons.calendar_today,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Borrowed: ${_formatDate(history.issueDate)}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(width: 16),
+                  Icon(
+                    Icons.check_circle_outline,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Returned: ${_formatDate(history.returnDate)}',
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
               ),
