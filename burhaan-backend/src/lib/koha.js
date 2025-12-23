@@ -128,6 +128,8 @@ async function getPatronByCardNumber(cardNumber) {
   const query = JSON.stringify({ cardnumber: cardNumber });
   const result = await kohaRequest(`/patrons?q=${encodeURIComponent(query)}`);
 
+  console.log('getPatronByCardNumber result:', JSON.stringify(result, null, 2));
+
   if (result.success && result.data && result.data.length > 0) {
     return result.data[0];
   }
