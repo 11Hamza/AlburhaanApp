@@ -1,19 +1,22 @@
 /**
  * GET /api/videos
  * List all YouTube videos with pagination and filtering
+ * Combines videos from database AND Koha books with YouTube URLs
  *
  * POST /api/videos (Admin only)
  * Add a new YouTube video
  */
 
 import { requireAuth, errorResponse, successResponse } from '@/lib/auth';
-import { getPaginationParams, paginatedResponse, validateRequired } from '@/lib/helpers';
+import { getPaginationParams, paginatedResponse, validateRequired, formatBookResponse } from '@/lib/helpers';
 import { prisma } from '@/lib/db';
+import { getBooks } from '@/lib/koha';
 
 /**
  * Extract YouTube video ID from various URL formats
  */
 function extractYouTubeId(url) {
+  if (!url) return null;
   const patterns = [
     /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
     /youtube\.com\/v\/([^&\n?#]+)/,
@@ -34,53 +37,101 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const { page, perPage } = getPaginationParams(searchParams);
     const category = searchParams.get('category');
-    const search = searchParams.get('q');
+    const search = searchParams.get('q') || searchParams.get('search');
 
-    // Build query
+    // Get videos from database
     const where = { isActive: true };
     if (category) {
       where.category = category;
     }
 
-    // Get videos
-    let videos = await prisma.youtubeVideo.findMany({
+    let dbVideos = await prisma.youtubeVideo.findMany({
       where,
       orderBy: { createdAt: 'desc' },
-      skip: (page - 1) * perPage,
-      take: perPage,
     });
 
-    // If search query, filter in-memory (for now)
+    // If search query, filter in-memory
     if (search) {
       const searchLower = search.toLowerCase();
-      videos = videos.filter(video =>
+      dbVideos = dbVideos.filter(video =>
         video.title.toLowerCase().includes(searchLower) ||
         video.description?.toLowerCase().includes(searchLower) ||
         video.speaker?.toLowerCase().includes(searchLower)
       );
     }
 
-    // Get total count
-    const total = await prisma.youtubeVideo.count({ where });
+    // Also get YouTube videos from Koha books
+    const kohaResult = await getBooks({
+      page: 1,
+      perPage: 100, // Get more to filter
+      query: search || null,
+    });
 
-    return Response.json(paginatedResponse(
-      videos.map(video => ({
-        id: video.id,
-        youtubeId: video.youtubeId,
-        title: video.title,
-        description: video.description,
-        category: video.category,
-        thumbnailUrl: video.thumbnailUrl || `https://img.youtube.com/vi/${video.youtubeId}/hqdefault.jpg`,
-        duration: video.duration,
-        speaker: video.speaker,
-        language: video.language,
-        publishedAt: video.publishedAt,
-        createdAt: video.createdAt,
-      })),
-      page,
-      perPage,
-      total
-    ));
+    let kohaVideos = [];
+    if (kohaResult.success && Array.isArray(kohaResult.data)) {
+      // Filter for books with YouTube URLs
+      kohaVideos = kohaResult.data
+        .map(formatBookResponse)
+        .filter(book => book.youtubeUrl)
+        .map(book => {
+          const youtubeId = extractYouTubeId(book.youtubeUrl);
+          return {
+            id: `koha-${book.biblioId}`,
+            youtubeId: youtubeId,
+            title: book.title,
+            description: book.abstract || null,
+            category: 'Library',
+            thumbnailUrl: youtubeId
+              ? `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`
+              : book.coverImage,
+            duration: null,
+            speaker: book.author,
+            language: book.language || 'en',
+            publishedAt: book.publicationDate,
+            createdAt: new Date().toISOString(),
+            biblioId: book.biblioId,
+            youtubeUrl: book.youtubeUrl,
+          };
+        });
+    }
+
+    // Combine videos (database first, then Koha)
+    // Deduplicate by youtubeId
+    const seenIds = new Set();
+    const allVideos = [];
+
+    for (const video of dbVideos) {
+      if (video.youtubeId && !seenIds.has(video.youtubeId)) {
+        seenIds.add(video.youtubeId);
+        allVideos.push({
+          id: video.id,
+          youtubeId: video.youtubeId,
+          title: video.title,
+          description: video.description,
+          category: video.category,
+          thumbnailUrl: video.thumbnailUrl || `https://img.youtube.com/vi/${video.youtubeId}/hqdefault.jpg`,
+          duration: video.duration,
+          speaker: video.speaker,
+          language: video.language,
+          publishedAt: video.publishedAt,
+          createdAt: video.createdAt,
+        });
+      }
+    }
+
+    for (const video of kohaVideos) {
+      if (video.youtubeId && !seenIds.has(video.youtubeId)) {
+        seenIds.add(video.youtubeId);
+        allVideos.push(video);
+      }
+    }
+
+    // Paginate combined results
+    const total = allVideos.length;
+    const startIndex = (page - 1) * perPage;
+    const paginatedVideos = allVideos.slice(startIndex, startIndex + perPage);
+
+    return Response.json(paginatedResponse(paginatedVideos, page, perPage, total));
 
   } catch (error) {
     console.error('Videos fetch error:', error);

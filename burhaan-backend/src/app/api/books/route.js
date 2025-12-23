@@ -55,7 +55,8 @@ export async function GET(request) {
       ? result.data.map(formatBookResponse)
       : [];
 
-    return Response.json(paginatedResponse(books, page, perPage));
+    // Use total from Koha X-Total-Count header
+    return Response.json(paginatedResponse(books, page, perPage, result.total));
 
   } catch (error) {
     console.error('Books listing error:', error);

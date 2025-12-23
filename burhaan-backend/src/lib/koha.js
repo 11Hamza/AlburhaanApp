@@ -70,14 +70,19 @@ async function kohaRequest(endpoint, options = {}, userCredentials = null) {
         status: response.status,
         error: data.error || data.message || 'Request failed',
         data: null,
+        total: null,
       };
     }
+
+    // Get total count from Koha header (X-Total-Count)
+    const totalCount = response.headers.get('X-Total-Count');
 
     return {
       success: true,
       status: response.status,
       data,
       error: null,
+      total: totalCount ? parseInt(totalCount, 10) : null,
     };
   } catch (error) {
     clearTimeout(timeoutId);
