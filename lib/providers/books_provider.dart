@@ -57,7 +57,7 @@ class BooksProvider extends ChangeNotifier {
     try {
       final result = await _booksService.getBooks(
         page: 1,
-        perPage: 20,
+        perPage: 30,  // Load more items per page for faster browsing
         query: query,
         subject: _selectedSubject,
         language: _selectedLanguage,
@@ -85,7 +85,7 @@ class BooksProvider extends ChangeNotifier {
     try {
       final result = await _booksService.getBooks(
         page: _currentPage + 1,
-        perPage: 20,
+        perPage: 30,  // Load more items per page for faster browsing
         query: _currentQuery,
         subject: _selectedSubject,
         language: _selectedLanguage,

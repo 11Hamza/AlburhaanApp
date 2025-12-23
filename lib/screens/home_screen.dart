@@ -43,8 +43,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onScroll() {
+    // Trigger loading earlier (500px before end) for smoother scrolling
     if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
+        _scrollController.position.maxScrollExtent - 500) {
       final booksProvider = context.read<BooksProvider>();
       if (booksProvider.hasMore && !booksProvider.isLoadingMore) {
         booksProvider.loadMoreBooks();
