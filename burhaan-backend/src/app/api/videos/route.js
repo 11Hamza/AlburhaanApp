@@ -61,39 +61,62 @@ export async function GET(request) {
     }
 
     // Also get YouTube videos from Koha books
-    const kohaResult = await getBooks({
-      page: 1,
-      perPage: 100, // Get more to filter
-      query: search || null,
-    });
-
+    // Fetch multiple pages to find all videos
     let kohaVideos = [];
-    if (kohaResult.success && Array.isArray(kohaResult.data)) {
-      // Filter for books with YouTube URLs
-      kohaVideos = kohaResult.data
-        .map(formatBookResponse)
-        .filter(book => book.youtubeUrl)
-        .map(book => {
-          const youtubeId = extractYouTubeId(book.youtubeUrl);
-          return {
-            id: `koha-${book.biblioId}`,
-            youtubeId: youtubeId,
-            title: book.title,
-            description: book.abstract || null,
-            category: 'Library',
-            thumbnailUrl: youtubeId
-              ? `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`
-              : book.coverImage,
-            duration: null,
-            speaker: book.author,
-            language: book.language || 'en',
-            publishedAt: book.publicationDate,
-            createdAt: new Date().toISOString(),
-            biblioId: book.biblioId,
-            youtubeUrl: book.youtubeUrl,
-          };
-        });
+    let kohaPage = 1;
+    let hasMoreKoha = true;
+    const maxKohaPages = 10; // Limit to prevent infinite loops
+
+    console.log('Fetching videos from Koha...');
+
+    while (hasMoreKoha && kohaPage <= maxKohaPages) {
+      const kohaResult = await getBooks({
+        page: kohaPage,
+        perPage: 100,
+        query: search || null,
+      });
+
+      if (kohaResult.success && Array.isArray(kohaResult.data) && kohaResult.data.length > 0) {
+        // Filter for books with YouTube URLs
+        const pageVideos = kohaResult.data
+          .map(formatBookResponse)
+          .filter(book => book.youtubeUrl)
+          .map(book => {
+            const youtubeId = extractYouTubeId(book.youtubeUrl);
+            return {
+              id: `koha-${book.biblioId}`,
+              youtubeId: youtubeId,
+              title: book.title,
+              description: book.abstract || null,
+              category: 'Library',
+              thumbnailUrl: youtubeId
+                ? `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`
+                : book.coverImage,
+              duration: null,
+              speaker: book.author,
+              language: book.language || 'en',
+              publishedAt: book.publicationDate,
+              createdAt: new Date().toISOString(),
+              biblioId: book.biblioId,
+              youtubeUrl: book.youtubeUrl,
+            };
+          });
+
+        kohaVideos = kohaVideos.concat(pageVideos);
+        console.log(`  Page ${kohaPage}: Found ${pageVideos.length} videos (total: ${kohaVideos.length})`);
+
+        // Check if we should continue
+        if (kohaResult.data.length < 100) {
+          hasMoreKoha = false;
+        } else {
+          kohaPage++;
+        }
+      } else {
+        hasMoreKoha = false;
+      }
     }
+
+    console.log(`Total videos from Koha: ${kohaVideos.length}`);
 
     // Combine videos (database first, then Koha)
     // Deduplicate by youtubeId
