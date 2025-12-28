@@ -185,4 +185,15 @@ class BooksService {
 
     return [];
   }
+
+  /// Get total book count (cached on server)
+  Future<int?> getTotalBookCount() async {
+    final response = await _api.get<Map<String, dynamic>>('/books/count');
+
+    if (response.success && response.data != null) {
+      return response.data!['total'] as int?;
+    }
+
+    return null;
+  }
 }
