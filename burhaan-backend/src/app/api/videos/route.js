@@ -130,12 +130,17 @@ export async function GET(request) {
       );
     }
 
-    // Use cached Koha videos (don't block on fetch)
+    // Use cached Koha videos
     let kohaVideos = cachedKohaVideos;
 
-    // Trigger background refresh if cache is stale or empty
-    if (!cacheTime || (Date.now() - cacheTime > CACHE_DURATION)) {
-      fetchKohaVideos().catch(() => {}); // Non-blocking
+    // If cache is empty, wait for initial fetch (with timeout)
+    // If cache is stale, refresh in background
+    if (!cacheTime && cachedKohaVideos.length === 0 && !isFetching) {
+      console.log('Videos: Cache empty, waiting for initial fetch...');
+      await fetchKohaVideos(); // Wait for first fetch
+      kohaVideos = cachedKohaVideos;
+    } else if (cacheTime && (Date.now() - cacheTime > CACHE_DURATION)) {
+      fetchKohaVideos().catch(() => {}); // Background refresh
     }
 
     // Filter koha videos by search if provided
