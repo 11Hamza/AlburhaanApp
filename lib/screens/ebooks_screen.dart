@@ -103,17 +103,22 @@ class _EbooksScreenState extends State<EbooksScreen> {
   }
 
   Future<void> _openEbook(Ebook ebook) async {
-    // Get ebook with access URL
-    final details = await _service.getEbook(ebook.id);
-    if (details?.accessUrl != null) {
-      final uri = Uri.parse(details!.accessUrl!);
+    // Use accessUrl directly from the ebook (already returned in list)
+    if (ebook.accessUrl != null && ebook.accessUrl!.isNotEmpty) {
+      final uri = Uri.parse(ebook.accessUrl!);
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not open eBook')),
+          );
+        }
       }
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('eBook not available')),
+          const SnackBar(content: Text('eBook URL not available')),
         );
       }
     }
@@ -326,7 +331,7 @@ class _EbookCard extends StatelessWidget {
                           ),
                         const Spacer(),
                         Icon(
-                          Icons.download,
+                          Icons.open_in_new,
                           size: 16,
                           color: Theme.of(context).colorScheme.primary,
                         ),
