@@ -68,14 +68,15 @@ class EbooksResult {
   });
 
   factory EbooksResult.fromJson(Map<String, dynamic> json) {
+    // Backend returns 'data' array, not 'ebooks'
+    final ebooksList = json['data'] ?? json['ebooks'] ?? [];
     return EbooksResult(
-      ebooks: (json['ebooks'] as List?)
-              ?.map((e) => Ebook.fromJson(e))
-              .toList() ??
-          [],
+      ebooks: (ebooksList as List)
+              .map((e) => Ebook.fromJson(e))
+              .toList(),
       total: json['pagination']?['total'] ?? 0,
       page: json['pagination']?['page'] ?? 1,
-      pageSize: json['pagination']?['pageSize'] ?? 20,
+      pageSize: json['pagination']?['perPage'] ?? json['pagination']?['pageSize'] ?? 20,
     );
   }
 
