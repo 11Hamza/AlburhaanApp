@@ -74,8 +74,18 @@ async function kohaRequest(endpoint, options = {}, userCredentials = null) {
       };
     }
 
-    // Get total count from Koha header (X-Total-Count)
-    const totalCount = response.headers.get('X-Total-Count');
+    // Get total count from Koha headers
+    // Koha uses X-Total-Count or x-total-count
+    const totalCount = response.headers.get('X-Total-Count')
+      || response.headers.get('x-total-count')
+      || response.headers.get('Total-Count');
+
+    // Log headers for debugging
+    console.log('Koha response headers:', {
+      'X-Total-Count': response.headers.get('X-Total-Count'),
+      'x-total-count': response.headers.get('x-total-count'),
+      'content-type': response.headers.get('content-type'),
+    });
 
     return {
       success: true,
