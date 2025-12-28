@@ -107,7 +107,8 @@ class _EbooksScreenState extends State<EbooksScreen> {
     if (ebook.accessUrl != null && ebook.accessUrl!.isNotEmpty) {
       final uri = Uri.parse(ebook.accessUrl!);
       if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        // Open in-app browser instead of external app
+        await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
