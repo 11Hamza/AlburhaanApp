@@ -65,7 +65,7 @@ export async function GET(request) {
     let kohaVideos = [];
     let kohaPage = 1;
     let hasMoreKoha = true;
-    const maxKohaPages = 10; // Limit to prevent infinite loops
+    const maxKohaPages = 60; // Search all pages (5177 books / 100 per page = 52 pages)
 
     console.log('Fetching videos from Koha...');
 
