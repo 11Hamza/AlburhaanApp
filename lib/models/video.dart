@@ -75,14 +75,15 @@ class VideosResult {
   });
 
   factory VideosResult.fromJson(Map<String, dynamic> json) {
+    // Backend returns 'data' array, not 'videos'
+    final videosList = json['data'] ?? json['videos'] ?? [];
     return VideosResult(
-      videos: (json['videos'] as List?)
-              ?.map((v) => Video.fromJson(v))
-              .toList() ??
-          [],
+      videos: (videosList as List)
+              .map((v) => Video.fromJson(v))
+              .toList(),
       total: json['pagination']?['total'] ?? 0,
       page: json['pagination']?['page'] ?? 1,
-      pageSize: json['pagination']?['pageSize'] ?? 20,
+      pageSize: json['pagination']?['perPage'] ?? json['pagination']?['pageSize'] ?? 20,
     );
   }
 
