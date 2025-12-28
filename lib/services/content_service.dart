@@ -25,7 +25,7 @@ class ContentService {
     if (search != null && search.isNotEmpty) queryParams['search'] = search;
 
     final response = await _api.get<Map<String, dynamic>>(
-      '/api/ebooks',
+      '/ebooks',
       queryParams: queryParams,
     );
 
@@ -38,7 +38,7 @@ class ContentService {
   /// Get a single ebook with access URL
   Future<Ebook?> getEbook(String id) async {
     final response = await _api.get<Map<String, dynamic>>(
-      '/api/ebooks/$id',
+      '/ebooks/$id',
     );
 
     if (response.success && response.data != null) {
@@ -67,7 +67,7 @@ class ContentService {
     if (search != null && search.isNotEmpty) queryParams['search'] = search;
 
     final response = await _api.get<Map<String, dynamic>>(
-      '/api/videos',
+      '/videos',
       queryParams: queryParams,
     );
 
@@ -80,7 +80,7 @@ class ContentService {
   /// Get a single video
   Future<Video?> getVideo(String id) async {
     final response = await _api.get<Map<String, dynamic>>(
-      '/api/videos/$id',
+      '/videos/$id',
     );
 
     if (response.success && response.data != null) {
@@ -94,7 +94,7 @@ class ContentService {
   /// Get content categories with counts
   Future<List<ContentCategory>> getCategories() async {
     final response = await _api.get<Map<String, dynamic>>(
-      '/api/content/categories',
+      '/content/categories',
     );
 
     if (response.success && response.data != null) {
