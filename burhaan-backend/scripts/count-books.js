@@ -3,6 +3,31 @@
  * Run with: node scripts/count-books.js
  */
 
+const fs = require('fs');
+const path = require('path');
+
+// Load .env.local file manually
+function loadEnv() {
+  const envPath = path.join(__dirname, '..', '.env.local');
+  if (fs.existsSync(envPath)) {
+    const content = fs.readFileSync(envPath, 'utf8');
+    content.split('\n').forEach(line => {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#')) {
+        const [key, ...valueParts] = trimmed.split('=');
+        if (key && valueParts.length > 0) {
+          process.env[key.trim()] = valueParts.join('=').trim();
+        }
+      }
+    });
+    console.log('Loaded .env.local');
+  } else {
+    console.log('.env.local not found at:', envPath);
+  }
+}
+
+loadEnv();
+
 const KOHA_BASE_URL = process.env.KOHA_BASE_URL || 'https://library.al-burhaan.org/api/v1';
 const KOHA_USERNAME = process.env.KOHA_USERNAME;
 const KOHA_PASSWORD = process.env.KOHA_PASSWORD;
@@ -109,17 +134,9 @@ function analyzeBooks(books) {
 }
 
 async function main() {
-  // Load env from .env.local if running locally
-  try {
-    const { config } = await import('dotenv');
-    config({ path: '.env.local' });
-  } catch (e) {
-    // dotenv not available, use existing env
-  }
-
   if (!KOHA_USERNAME || !KOHA_PASSWORD) {
     console.error('Error: KOHA_USERNAME and KOHA_PASSWORD must be set');
-    console.error('Run with: KOHA_USERNAME=xxx KOHA_PASSWORD=xxx node scripts/count-books.js');
+    console.error('Make sure .env.local exists with KOHA_USERNAME and KOHA_PASSWORD');
     process.exit(1);
   }
 
