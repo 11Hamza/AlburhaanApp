@@ -55,36 +55,17 @@ class BooksProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Fetch total count in parallel if not already loaded
-      final futures = <Future>[
-        _booksService.getBooks(
-          page: 1,
-          perPage: 30,  // Load more items per page for faster browsing
-          query: query,
-          subject: _selectedSubject,
-          language: _selectedLanguage,
-        ),
-      ];
-
-      // Only fetch count if we don't have it or no filters applied
-      final hasFilters = query != null || _selectedSubject != null || _selectedLanguage != null;
-      if (_totalBooks == null && !hasFilters) {
-        futures.add(_booksService.getTotalBookCount());
-      }
-
-      final results = await Future.wait(futures);
-      final result = results[0] as PaginatedResult<Book>;
+      final result = await _booksService.getBooks(
+        page: 1,
+        perPage: 30,  // Load more items per page for faster browsing
+        query: query,
+        subject: _selectedSubject,
+        language: _selectedLanguage,
+      );
 
       _books = result.items;
       _hasMore = result.hasMore;
-
-      // Use result.total if available, otherwise use fetched count, or keep existing
-      if (result.total != null) {
-        _totalBooks = result.total;
-      } else if (results.length > 1 && results[1] != null) {
-        _totalBooks = results[1] as int;
-      }
-
+      _totalBooks = result.total;  // Backend returns cached total (5177)
       _currentPage = 1;
     } catch (e) {
       _error = e.toString();
