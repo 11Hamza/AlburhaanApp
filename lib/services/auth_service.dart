@@ -130,8 +130,9 @@ class AuthService {
       if (response.success && response.data != null) {
         final data = response.data!;
 
-        // Check if registration is needed
-        if (data['needsRegistration'] == true) {
+        // Check if registration is needed (handle both bool and string)
+        final needsReg = data['needsRegistration'];
+        if (needsReg == true || needsReg == 'true') {
           final profile = data['profile'] as Map<String, dynamic>?;
           return AuthResult(
             success: false,
