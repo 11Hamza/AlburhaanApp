@@ -1,4 +1,5 @@
 import 'book.dart';
+import '../utils/type_utils.dart';
 
 class ReadingList {
   final String id;
@@ -26,7 +27,7 @@ class ReadingList {
       id: json['id']?.toString() ?? '',
       name: json['name'] ?? '',
       description: json['description'],
-      isPublic: json['isPublic'] ?? false,
+      isPublic: parseBool(json['isPublic']),
       itemCount: json['itemCount'] ?? 0,
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'])

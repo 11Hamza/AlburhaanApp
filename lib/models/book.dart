@@ -1,3 +1,5 @@
+import '../utils/type_utils.dart';
+
 class Book {
   final int biblioId;
   final String title;
@@ -104,7 +106,7 @@ class BookAvailability {
       biblioId: json['biblioId'] ?? 0,
       totalCopies: json['totalCopies'] ?? 0,
       availableCopies: json['availableCopies'] ?? 0,
-      isAvailable: json['isAvailable'] ?? false,
+      isAvailable: parseBool(json['isAvailable']),
       branches: (json['branches'] as List?)
               ?.map((b) => BranchAvailability.fromJson(b))
               .toList() ??

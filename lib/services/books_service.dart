@@ -1,4 +1,5 @@
 import '../models/book.dart';
+import '../utils/type_utils.dart';
 import 'api_service.dart';
 
 class PaginatedResult<T> {
@@ -59,7 +60,7 @@ class BooksService {
         page: pagination['page'] ?? page,
         perPage: pagination['perPage'] ?? perPage,
         total: pagination['total'],
-        hasMore: pagination['hasMore'] ?? items.length == perPage,
+        hasMore: pagination['hasMore'] != null ? parseBool(pagination['hasMore']) : items.length == perPage,
       );
     }
 
@@ -140,7 +141,7 @@ class BooksService {
         page: pagination['page'] ?? page,
         perPage: pagination['perPage'] ?? perPage,
         total: pagination['total'],
-        hasMore: pagination['hasMore'] ?? items.length == perPage,
+        hasMore: pagination['hasMore'] != null ? parseBool(pagination['hasMore']) : items.length == perPage,
       );
     }
 

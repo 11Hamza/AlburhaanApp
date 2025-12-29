@@ -3,6 +3,7 @@ import '../models/loan.dart';
 import '../models/hold.dart';
 import '../models/favorite.dart';
 import '../models/library.dart';
+import '../utils/type_utils.dart';
 import 'api_service.dart';
 import 'books_service.dart';
 
@@ -111,7 +112,7 @@ class UserService {
         page: pagination['page'] ?? page,
         perPage: pagination['perPage'] ?? perPage,
         total: pagination['total'],
-        hasMore: pagination['hasMore'] ?? false,
+        hasMore: parseBool(pagination['hasMore']),
       );
     }
 
@@ -235,7 +236,7 @@ class UserService {
         page: pagination['page'] ?? page,
         perPage: pagination['perPage'] ?? perPage,
         total: pagination['total'],
-        hasMore: pagination['hasMore'] ?? false,
+        hasMore: parseBool(pagination['hasMore']),
       );
     }
 
@@ -267,7 +268,7 @@ class UserService {
     final response = await _api.get<Map<String, dynamic>>('/favorites/$biblioId');
 
     if (response.success && response.data != null) {
-      return response.data!['isFavorite'] ?? false;
+      return parseBool(response.data!['isFavorite']);
     }
 
     return false;

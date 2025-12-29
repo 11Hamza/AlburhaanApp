@@ -1,3 +1,5 @@
+import '../utils/type_utils.dart';
+
 class Library {
   final String libraryId;
   final String name;
@@ -56,7 +58,7 @@ class Library {
       email: json['email'],
       url: json['url'],
       notes: json['notes'],
-      isActive: json['isActive'] ?? true,
+      isActive: parseBool(json['isActive'], defaultValue: true),
     );
   }
 }

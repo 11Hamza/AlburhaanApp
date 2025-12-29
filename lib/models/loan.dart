@@ -1,4 +1,5 @@
 import 'book.dart';
+import '../utils/type_utils.dart';
 
 class Loan {
   final int checkoutId;
@@ -38,9 +39,9 @@ class Loan {
       dueDate: json['dueDate'] ?? '',
       issueDate: json['issueDate'],
       renewals: json['renewals'] ?? 0,
-      isOverdue: json['isOverdue'] ?? false,
+      isOverdue: parseBool(json['isOverdue']),
       daysUntilDue: json['daysUntilDue'] ?? 0,
-      canRenew: json['canRenew'] ?? true,
+      canRenew: parseBool(json['canRenew'], defaultValue: true),
       renewalError: json['renewalError'],
       book: json['book'] != null ? Book.fromJson(json['book']) : null,
     );
