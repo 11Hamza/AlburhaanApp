@@ -198,8 +198,13 @@ export async function validateGoogleIdToken(idToken) {
 
     const payload = await response.json();
 
+    // Log the audience for debugging
+    console.log('Token audience (aud):', payload.aud);
+    console.log('Expected GOOGLE_CLIENT_ID:', GOOGLE_CLIENT_ID);
+
     // Verify the token is for our app
     if (payload.aud !== GOOGLE_CLIENT_ID) {
+      console.error(`Client ID mismatch! Token aud: ${payload.aud}, Expected: ${GOOGLE_CLIENT_ID}`);
       return { success: false, error: 'Token not issued for this app' };
     }
 
