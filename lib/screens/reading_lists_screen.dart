@@ -40,7 +40,7 @@ class _ReadingListsScreenState extends State<ReadingListsScreen> {
       final newList = await _service.createReadingList(
         name: result['name'],
         description: result['description'],
-        isPublic: result['isPublic'] ?? false,
+        isPublic: result['isPublic'] == true,
       );
 
       if (newList != null) {
