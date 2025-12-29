@@ -33,8 +33,15 @@ class User {
       phone: json['phone'],
       libraryId: json['libraryId'],
       categoryId: json['categoryId'],
-      isGuest: json['isGuest'] ?? false,
+      isGuest: _parseBool(json['isGuest']),
     );
+  }
+
+  static bool _parseBool(dynamic value) {
+    if (value == null) return false;
+    if (value is bool) return value;
+    if (value is String) return value.toLowerCase() == 'true';
+    return false;
   }
 
   factory User.guest() {
@@ -79,9 +86,16 @@ class UserPreferences {
     return UserPreferences(
       language: json['language'] ?? 'en',
       theme: json['theme'] ?? 'light',
-      notificationsEnabled: json['notificationsEnabled'] ?? true,
+      notificationsEnabled: _parseBool(json['notificationsEnabled'], defaultValue: true),
       homeLibraryId: json['homeLibraryId'],
     );
+  }
+
+  static bool _parseBool(dynamic value, {bool defaultValue = false}) {
+    if (value == null) return defaultValue;
+    if (value is bool) return value;
+    if (value is String) return value.toLowerCase() == 'true';
+    return defaultValue;
   }
 }
 
@@ -124,12 +138,19 @@ class LibraryCard {
       libraryId: card['libraryId'],
       dateEnrolled: card['dateEnrolled'],
       dateExpiry: card['dateExpiry'],
-      isExpired: card['isExpired'] ?? false,
+      isExpired: _parseBool(card['isExpired']),
       daysUntilExpiry: card['daysUntilExpiry'],
       status: card['status'] ?? 'active',
       qrCode: json['qrCode'],
       barcode: json['barcode'],
     );
+  }
+
+  static bool _parseBool(dynamic value) {
+    if (value == null) return false;
+    if (value is bool) return value;
+    if (value is String) return value.toLowerCase() == 'true';
+    return false;
   }
 }
 
