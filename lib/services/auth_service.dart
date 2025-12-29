@@ -103,6 +103,7 @@ class AuthService {
   /// Login with Google
   Future<AuthResult> loginWithGoogle() async {
     try {
+      print('DEBUG: Starting Google Sign-In');
       // Sign out first to ensure account picker shows
       await _googleSignIn.signOut();
 
@@ -116,8 +117,12 @@ class AuthService {
         );
       }
 
+      print('DEBUG: Got Google user: ${googleUser.email}');
+
       // Get auth details
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      print('DEBUG: Got auth, sending to backend');
 
       // Send ID token to our backend
       final response = await _api.post<Map<String, dynamic>>(
@@ -127,8 +132,15 @@ class AuthService {
         },
       );
 
+      print('DEBUG: Response success=${response.success}, statusCode=${response.statusCode}');
+      print('DEBUG: Response data type: ${response.data.runtimeType}');
+      print('DEBUG: Response data: ${response.data}');
+
       if (response.success && response.data != null) {
         final data = response.data!;
+        print('DEBUG: data type: ${data.runtimeType}');
+        print('DEBUG: needsRegistration type: ${data['needsRegistration'].runtimeType}');
+        print('DEBUG: needsRegistration value: ${data['needsRegistration']}');
 
         // Check if registration is needed (handle both bool and string)
         final needsReg = data['needsRegistration'];
