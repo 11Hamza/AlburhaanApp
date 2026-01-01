@@ -30,9 +30,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLoadingInfo = true;
   DateTime? _dateOfBirth;
 
+  // Fallback categories from Al-Burhaan Koha system
+  static const List<Map<String, dynamic>> _fallbackCategories = [
+    {'id': 'PT', 'name': 'Patron (Adult)'},
+    {'id': 'ST', 'name': 'Student'},
+    {'id': 'YA', 'name': 'Young Adult'},
+    {'id': 'J', 'name': 'Juvenile'},
+    {'id': 'K', 'name': 'Kid'},
+    {'id': 'T', 'name': 'Teacher'},
+    {'id': 'HB', 'name': 'Home Bound'},
+  ];
+
+  // Fallback library
+  static const List<Map<String, dynamic>> _fallbackLibraries = [
+    {'id': 'MAIN', 'name': 'Main Library'},
+  ];
+
   @override
   void initState() {
     super.initState();
+
+    // Set fallback values immediately
+    _categories = List<Map<String, dynamic>>.from(_fallbackCategories);
+    _libraries = List<Map<String, dynamic>>.from(_fallbackLibraries);
+    _selectedCategory = _categories.first['id']?.toString();
+    _selectedLibrary = _libraries.first['id']?.toString();
+
     _loadRegistrationInfo();
 
     // Pre-fill from SSO profile if available
@@ -56,33 +79,43 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _loadRegistrationInfo() async {
-    final authProvider = context.read<AuthProvider>();
-    final info = await authProvider.getRegistrationInfo();
-
-    debugPrint('DEBUG: Registration info received: $info');
-
+    // Already have fallback values, so set loading to false immediately
     if (mounted) {
-      setState(() {
-        _isLoadingInfo = false;
-        if (info != null) {
+      setState(() => _isLoadingInfo = false);
+    }
+
+    // Try to fetch from API to get actual libraries
+    try {
+      final authProvider = context.read<AuthProvider>();
+      final info = await authProvider.getRegistrationInfo();
+
+      debugPrint('DEBUG: Registration info received: $info');
+
+      if (mounted && info != null) {
+        setState(() {
+          // Only override libraries if API returned valid data
           if (info['libraries'] != null) {
-            _libraries = List<Map<String, dynamic>>.from(info['libraries'] as List);
-            debugPrint('DEBUG: Loaded ${_libraries.length} libraries');
-            if (_libraries.isNotEmpty) {
+            final apiLibraries = List<Map<String, dynamic>>.from(info['libraries'] as List);
+            if (apiLibraries.isNotEmpty) {
+              _libraries = apiLibraries;
               _selectedLibrary = _libraries.first['id']?.toString();
-              debugPrint('DEBUG: Selected library: $_selectedLibrary');
+              debugPrint('DEBUG: Loaded ${_libraries.length} libraries from API');
             }
           }
+          // Only override categories if API returned valid data
           if (info['categories'] != null) {
-            _categories = List<Map<String, dynamic>>.from(info['categories'] as List);
-            debugPrint('DEBUG: Loaded ${_categories.length} categories: $_categories');
-            if (_categories.isNotEmpty) {
+            final apiCategories = List<Map<String, dynamic>>.from(info['categories'] as List);
+            if (apiCategories.isNotEmpty) {
+              _categories = apiCategories;
               _selectedCategory = _categories.first['id']?.toString();
-              debugPrint('DEBUG: Selected category: $_selectedCategory');
+              debugPrint('DEBUG: Loaded ${_categories.length} categories from API');
             }
           }
-        }
-      });
+        });
+      }
+    } catch (e) {
+      debugPrint('DEBUG: Error loading registration info: $e');
+      // Keep using fallback values
     }
   }
 
@@ -392,84 +425,54 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     _buildSectionHeader(context, 'Library Preferences', Icons.local_library),
                     const SizedBox(height: 16),
 
-                    // Library Dropdown
-                    if (_libraries.isNotEmpty)
-                      DropdownButtonFormField<String>(
-                        value: _selectedLibrary,
-                        decoration: const InputDecoration(
-                          labelText: 'Home Library',
-                          prefixIcon: Icon(Icons.local_library),
-                        ),
-                        items: _libraries.map((lib) {
-                          return DropdownMenuItem(
-                            value: lib['id']?.toString(),
-                            child: Text(lib['name']?.toString() ?? 'Unknown'),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          setState(() => _selectedLibrary = value);
-                        },
+                    // Library Dropdown (required by Koha)
+                    DropdownButtonFormField<String>(
+                      value: _selectedLibrary,
+                      decoration: const InputDecoration(
+                        labelText: 'Home Library *',
+                        prefixIcon: Icon(Icons.local_library),
                       ),
-                    if (_libraries.isEmpty)
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceVariant,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.info_outline,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant),
-                            const SizedBox(width: 12),
-                            Text('Default library will be assigned',
-                                style: TextStyle(
-                                    color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                          ],
-                        ),
-                      ),
+                      items: _libraries.map((lib) {
+                        return DropdownMenuItem(
+                          value: lib['id']?.toString(),
+                          child: Text(lib['name']?.toString() ?? 'Unknown'),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() => _selectedLibrary = value);
+                      },
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please select a home library';
+                        }
+                        return null;
+                      },
+                    ),
                     const SizedBox(height: 16),
 
-                    // Category Dropdown
-                    if (_categories.isNotEmpty)
-                      DropdownButtonFormField<String>(
-                        value: _selectedCategory,
-                        decoration: const InputDecoration(
-                          labelText: 'Patron Category *',
-                          prefixIcon: Icon(Icons.category),
-                        ),
-                        items: _categories.map((cat) {
-                          return DropdownMenuItem(
-                            value: cat['id']?.toString(),
-                            child: Text(cat['name']?.toString() ?? 'Unknown'),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          setState(() => _selectedCategory = value);
-                        },
+                    // Category Dropdown (required by Koha)
+                    DropdownButtonFormField<String>(
+                      value: _selectedCategory,
+                      decoration: const InputDecoration(
+                        labelText: 'Patron Category *',
+                        prefixIcon: Icon(Icons.category),
                       ),
-                    if (_categories.isEmpty)
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.errorContainer,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.warning,
-                                color: Theme.of(context).colorScheme.error),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'Could not load patron categories. Please try again later.',
-                                style: TextStyle(
-                                    color: Theme.of(context).colorScheme.error),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      items: _categories.map((cat) {
+                        return DropdownMenuItem(
+                          value: cat['id']?.toString(),
+                          child: Text(cat['name']?.toString() ?? 'Unknown'),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() => _selectedCategory = value);
+                      },
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please select a patron category';
+                        }
+                        return null;
+                      },
+                    ),
                     const SizedBox(height: 32),
 
                     // Register Button
