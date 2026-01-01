@@ -18,11 +18,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _surnameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _addressController = TextEditingController();
+  final _cityController = TextEditingController();
+  final _postalCodeController = TextEditingController();
 
   String? _selectedLibrary;
+  String? _selectedCategory;
   List<Map<String, dynamic>> _libraries = [];
+  List<Map<String, dynamic>> _categories = [];
   bool _isLoading = false;
   bool _isLoadingInfo = true;
+  DateTime? _dateOfBirth;
 
   @override
   void initState() {
@@ -31,9 +37,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     // Pre-fill from SSO profile if available
     if (widget.ssoProfile != null) {
-      _firstNameController.text = widget.ssoProfile!['firstName'] ?? '';
-      _surnameController.text = widget.ssoProfile!['lastName'] ?? '';
-      _emailController.text = widget.ssoProfile!['email'] ?? '';
+      _firstNameController.text = widget.ssoProfile!['firstName']?.toString() ?? '';
+      _surnameController.text = widget.ssoProfile!['lastName']?.toString() ?? '';
+      _emailController.text = widget.ssoProfile!['email']?.toString() ?? '';
     }
   }
 
@@ -43,6 +49,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _surnameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
+    _addressController.dispose();
+    _cityController.dispose();
+    _postalCodeController.dispose();
     super.dispose();
   }
 
@@ -53,13 +62,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (mounted) {
       setState(() {
         _isLoadingInfo = false;
-        if (info != null && info['libraries'] != null) {
-          _libraries = List<Map<String, dynamic>>.from(info['libraries']);
-          if (_libraries.isNotEmpty) {
-            _selectedLibrary = _libraries.first['id'] as String?;
+        if (info != null) {
+          if (info['libraries'] != null) {
+            _libraries = List<Map<String, dynamic>>.from(info['libraries'] as List);
+            if (_libraries.isNotEmpty) {
+              _selectedLibrary = _libraries.first['id']?.toString();
+            }
+          }
+          if (info['categories'] != null) {
+            _categories = List<Map<String, dynamic>>.from(info['categories'] as List);
+            if (_categories.isNotEmpty) {
+              _selectedCategory = _categories.first['id']?.toString();
+            }
           }
         }
       });
+    }
+  }
+
+  Future<void> _selectDateOfBirth() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _dateOfBirth ?? DateTime(now.year - 18, now.month, now.day),
+      firstDate: DateTime(1900),
+      lastDate: now,
+      helpText: 'Select Date of Birth',
+    );
+    if (picked != null) {
+      setState(() => _dateOfBirth = picked);
     }
   }
 
@@ -77,8 +108,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ? _phoneController.text.trim()
           : null,
       libraryId: _selectedLibrary,
-      ssoProvider: widget.ssoProfile?['provider'],
-      ssoProviderAccountId: widget.ssoProfile?['providerAccountId'],
+      ssoProvider: widget.ssoProfile?['provider']?.toString(),
+      ssoProviderAccountId: widget.ssoProfile?['providerAccountId']?.toString(),
     );
 
     setState(() => _isLoading = false);
@@ -115,7 +146,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // SSO Badge
+                    // Header
+                    Text(
+                      'Join Al-Burhaan Library',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Create your library account to borrow books, place holds, and access digital resources.',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withOpacity(0.7),
+                          ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // SSO Badge (if applicable)
                     if (isSSO) ...[
                       Container(
                         padding: const EdgeInsets.all(16),
@@ -147,7 +197,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                         ?.copyWith(fontWeight: FontWeight.bold),
                                   ),
                                   Text(
-                                    widget.ssoProfile!['email'] ?? '',
+                                    widget.ssoProfile!['email']?.toString() ?? '',
                                     style:
                                         Theme.of(context).textTheme.bodySmall,
                                   ),
@@ -159,6 +209,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                       const SizedBox(height: 24),
                     ],
+
+                    // Personal Information Section
+                    _buildSectionHeader(context, 'Personal Information', Icons.person),
+                    const SizedBox(height: 16),
 
                     // First Name
                     TextFormField(
@@ -196,6 +250,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 16),
 
+                    // Date of Birth
+                    InkWell(
+                      onTap: _selectDateOfBirth,
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'Date of Birth',
+                          prefixIcon: Icon(Icons.cake),
+                        ),
+                        child: Text(
+                          _dateOfBirth != null
+                              ? '${_dateOfBirth!.day}/${_dateOfBirth!.month}/${_dateOfBirth!.year}'
+                              : 'Select date (optional)',
+                          style: _dateOfBirth != null
+                              ? null
+                              : TextStyle(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
+                                      .withOpacity(0.5),
+                                ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Contact Information Section
+                    _buildSectionHeader(context, 'Contact Information', Icons.contact_mail),
+                    const SizedBox(height: 16),
+
                     // Email
                     TextFormField(
                       controller: _emailController,
@@ -218,7 +301,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Phone (optional)
+                    // Phone
                     TextFormField(
                       controller: _phoneController,
                       decoration: const InputDecoration(
@@ -229,10 +312,58 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       keyboardType: TextInputType.phone,
                       textInputAction: TextInputAction.next,
                     ),
+                    const SizedBox(height: 24),
+
+                    // Address Section
+                    _buildSectionHeader(context, 'Address (Optional)', Icons.home),
+                    const SizedBox(height: 16),
+
+                    // Address
+                    TextFormField(
+                      controller: _addressController,
+                      decoration: const InputDecoration(
+                        labelText: 'Street Address',
+                        prefixIcon: Icon(Icons.location_on),
+                      ),
+                      textInputAction: TextInputAction.next,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // City and Postal Code in a Row
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: TextFormField(
+                            controller: _cityController,
+                            decoration: const InputDecoration(
+                              labelText: 'City',
+                              prefixIcon: Icon(Icons.location_city),
+                            ),
+                            textInputAction: TextInputAction.next,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _postalCodeController,
+                            decoration: const InputDecoration(
+                              labelText: 'Postal Code',
+                            ),
+                            keyboardType: TextInputType.number,
+                            textInputAction: TextInputAction.next,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Library Preferences Section
+                    _buildSectionHeader(context, 'Library Preferences', Icons.local_library),
                     const SizedBox(height: 16),
 
                     // Library Dropdown
-                    if (_libraries.isNotEmpty) ...[
+                    if (_libraries.isNotEmpty)
                       DropdownButtonFormField<String>(
                         value: _selectedLibrary,
                         decoration: const InputDecoration(
@@ -241,16 +372,53 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         items: _libraries.map((lib) {
                           return DropdownMenuItem(
-                            value: lib['id'] as String,
-                            child: Text(lib['name'] as String),
+                            value: lib['id']?.toString(),
+                            child: Text(lib['name']?.toString() ?? 'Unknown'),
                           );
                         }).toList(),
                         onChanged: (value) {
                           setState(() => _selectedLibrary = value);
                         },
                       ),
-                      const SizedBox(height: 24),
-                    ],
+                    if (_libraries.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surfaceVariant,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant),
+                            const SizedBox(width: 12),
+                            Text('Default library will be assigned',
+                                style: TextStyle(
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+
+                    // Category Dropdown
+                    if (_categories.isNotEmpty)
+                      DropdownButtonFormField<String>(
+                        value: _selectedCategory,
+                        decoration: const InputDecoration(
+                          labelText: 'Patron Category',
+                          prefixIcon: Icon(Icons.category),
+                        ),
+                        items: _categories.map((cat) {
+                          return DropdownMenuItem(
+                            value: cat['id']?.toString(),
+                            child: Text(cat['name']?.toString() ?? 'Unknown'),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() => _selectedCategory = value);
+                        },
+                      ),
+                    const SizedBox(height: 32),
 
                     // Register Button
                     FilledButton(
@@ -283,10 +451,46 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 .withOpacity(0.6),
                           ),
                     ),
+                    const SizedBox(height: 16),
+
+                    // Already have account link
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Already have an account? ',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Login'),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
             ),
+    );
+  }
+
+  Widget _buildSectionHeader(BuildContext context, String title, IconData icon) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 20,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+        ),
+      ],
     );
   }
 }

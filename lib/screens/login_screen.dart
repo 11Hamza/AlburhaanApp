@@ -18,7 +18,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoading = false;
-  String? _loadingType; // 'login', 'guest', 'google'
+  String? _loadingType; // 'login', 'guest'
 
   @override
   void dispose() {
@@ -82,45 +82,6 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(authProvider.error ?? 'Failed to continue as guest'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  Future<void> _loginWithGoogle() async {
-    setState(() {
-      _isLoading = true;
-      _loadingType = 'google';
-    });
-
-    final authProvider = context.read<AuthProvider>();
-    final result = await authProvider.loginWithGoogle();
-
-    setState(() {
-      _isLoading = false;
-      _loadingType = null;
-    });
-
-    if (!mounted) return;
-
-    if (result['success'] == true) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MainScreen()),
-      );
-    } else if (result['needsRegistration'] == true) {
-      // Navigate to registration with pre-filled SSO data
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => RegisterScreen(
-            ssoProfile: result['ssoProfile'] as Map<String, dynamic>?,
-          ),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result['error'] ?? 'Google sign in failed'),
           backgroundColor: Colors.red,
         ),
       );
@@ -264,25 +225,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
-
-                // Google Sign In Button
-                OutlinedButton.icon(
-                  onPressed: _isLoading ? null : _loginWithGoogle,
-                  icon: _loadingType == 'google'
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.g_mobiledata, size: 24),
-                  label: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Text(_loadingType == 'google'
-                        ? 'Signing in...'
-                        : 'Continue with Google'),
-                  ),
-                ),
-                const SizedBox(height: 12),
 
                 // Guest Button
                 OutlinedButton.icon(
