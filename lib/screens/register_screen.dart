@@ -108,6 +108,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ? _phoneController.text.trim()
           : null,
       libraryId: _selectedLibrary,
+      categoryId: _selectedCategory,
       ssoProvider: widget.ssoProfile?['provider']?.toString(),
       ssoProviderAccountId: widget.ssoProfile?['providerAccountId']?.toString(),
     );

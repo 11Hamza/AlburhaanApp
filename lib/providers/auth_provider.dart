@@ -144,6 +144,7 @@ class AuthProvider extends ChangeNotifier {
     required String email,
     String? phone,
     String? libraryId,
+    String? categoryId,
     String? ssoProvider,
     String? ssoProviderAccountId,
   }) async {
@@ -157,6 +158,7 @@ class AuthProvider extends ChangeNotifier {
       email: email,
       phone: phone,
       libraryId: libraryId,
+      categoryId: categoryId,
       ssoProvider: ssoProvider,
       ssoProviderAccountId: ssoProviderAccountId,
     );

@@ -285,6 +285,7 @@ class AuthService {
     required String email,
     String? phone,
     String? libraryId,
+    String? categoryId,
     String? ssoProvider,
     String? ssoProviderAccountId,
   }) async {
@@ -296,6 +297,7 @@ class AuthService {
         'email': email,
         if (phone != null) 'phone': phone,
         if (libraryId != null) 'libraryId': libraryId,
+        if (categoryId != null) 'categoryId': categoryId,
         if (ssoProvider != null) 'ssoProvider': ssoProvider,
         if (ssoProviderAccountId != null) 'ssoProviderAccountId': ssoProviderAccountId,
       },

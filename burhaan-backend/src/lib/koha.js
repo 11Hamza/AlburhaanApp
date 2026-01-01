@@ -174,6 +174,13 @@ async function getLibraryById(libraryId) {
 }
 
 /**
+ * Get all patron categories
+ */
+async function getPatronCategories() {
+  return kohaRequest('/patron_categories');
+}
+
+/**
  * Get books (biblios) with pagination and filters
  * Note: Subject/language filtering requires MARC field search which isn't
  * directly supported - these filters are ignored for now
@@ -364,6 +371,7 @@ export {
   getPatronById,
   getLibraries,
   getLibraryById,
+  getPatronCategories,
   getBooks,
   getBookById,
   getBookItems,

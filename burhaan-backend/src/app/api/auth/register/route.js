@@ -5,7 +5,7 @@
  * Creates a new patron in Koha and optionally links an SSO account
  */
 
-import { kohaRequest } from '@/lib/koha';
+import { kohaRequest, getPatronCategories, getLibraries } from '@/lib/koha';
 import { generateToken, errorResponse, successResponse, getTokenExpiry } from '@/lib/auth';
 import { validateRequired } from '@/lib/helpers';
 import { prisma } from '@/lib/db';
@@ -46,13 +46,21 @@ export async function POST(request) {
       return errorResponse('An account with this email already exists', 409, 'EMAIL_EXISTS');
     }
 
+    // Validate category and library IDs are provided
+    if (!categoryId) {
+      return errorResponse('Patron category is required', 400, 'MISSING_CATEGORY');
+    }
+    if (!libraryId) {
+      return errorResponse('Library is required', 400, 'MISSING_LIBRARY');
+    }
+
     // Build patron object for Koha
     const patronData = {
       firstname: firstName,
       surname: surname,
       email: email,
-      category_id: categoryId || 'ADULT', // Default category
-      library_id: libraryId || 'MAIN', // Default library
+      category_id: categoryId,
+      library_id: libraryId,
     };
 
     // Add optional fields if provided
@@ -145,18 +153,24 @@ export async function POST(request) {
  */
 export async function GET(request) {
   try {
-    // Fetch available libraries
-    const librariesResult = await kohaRequest('/libraries');
-    const libraries = librariesResult.success ? librariesResult.data : [];
+    // Fetch available libraries and patron categories from Koha
+    const [librariesResult, categoriesResult] = await Promise.all([
+      getLibraries(),
+      getPatronCategories(),
+    ]);
 
-    // Note: Koha doesn't have a public API for patron categories
-    // These would need to be configured or fetched differently
-    const categories = [
-      { id: 'ADULT', name: 'Adult', description: 'Adult patron (18+)' },
-      { id: 'CHILD', name: 'Child', description: 'Child patron (under 18)' },
-      { id: 'STUDENT', name: 'Student', description: 'Student patron' },
-      { id: 'STAFF', name: 'Staff', description: 'Library staff' },
-    ];
+    const libraries = librariesResult.success ? librariesResult.data : [];
+    const rawCategories = categoriesResult.success ? categoriesResult.data : [];
+
+    console.log('Fetched libraries:', libraries.length);
+    console.log('Fetched categories:', rawCategories.length, rawCategories);
+
+    // Map categories to expected format
+    const categories = rawCategories.map(cat => ({
+      id: cat.category_id,
+      name: cat.description || cat.category_id,
+      description: cat.description,
+    }));
 
     return successResponse({
       libraries: libraries.map(lib => ({
