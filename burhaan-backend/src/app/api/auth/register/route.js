@@ -159,6 +159,9 @@ export async function GET(request) {
       getPatronCategories(),
     ]);
 
+    console.log('Libraries result:', JSON.stringify(librariesResult, null, 2));
+    console.log('Categories result:', JSON.stringify(categoriesResult, null, 2));
+
     const libraries = librariesResult.success ? librariesResult.data : [];
     const rawCategories = categoriesResult.success ? categoriesResult.data : [];
 
@@ -166,11 +169,21 @@ export async function GET(request) {
     console.log('Fetched categories:', rawCategories.length, rawCategories);
 
     // Map categories to expected format
-    const categories = rawCategories.map(cat => ({
+    let categories = rawCategories.map(cat => ({
       id: cat.category_id,
       name: cat.description || cat.category_id,
       description: cat.description,
     }));
+
+    // If no categories from Koha, provide common defaults as fallback
+    if (categories.length === 0) {
+      console.warn('No categories from Koha API, using fallback defaults');
+      categories = [
+        { id: 'PT', name: 'Patron', description: 'Regular patron' },
+        { id: 'S', name: 'Staff', description: 'Staff member' },
+        { id: 'ST', name: 'Student', description: 'Student' },
+      ];
+    }
 
     return successResponse({
       libraries: libraries.map(lib => ({
