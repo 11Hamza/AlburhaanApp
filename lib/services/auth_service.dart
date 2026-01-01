@@ -329,7 +329,11 @@ class AuthService {
 
   /// Get registration requirements (libraries, categories)
   Future<Map<String, dynamic>?> getRegistrationInfo() async {
+    debugPrint('DEBUG: Fetching registration info from /auth/register');
     final response = await _api.get<Map<String, dynamic>>('/auth/register');
+    debugPrint('DEBUG: Registration info response success=${response.success}, statusCode=${response.statusCode}');
+    debugPrint('DEBUG: Registration info data=${response.data}');
+    debugPrint('DEBUG: Registration info error=${response.error}');
     return response.success ? response.data : null;
   }
 
