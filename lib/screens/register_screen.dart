@@ -59,20 +59,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final authProvider = context.read<AuthProvider>();
     final info = await authProvider.getRegistrationInfo();
 
+    debugPrint('DEBUG: Registration info received: $info');
+
     if (mounted) {
       setState(() {
         _isLoadingInfo = false;
         if (info != null) {
           if (info['libraries'] != null) {
             _libraries = List<Map<String, dynamic>>.from(info['libraries'] as List);
+            debugPrint('DEBUG: Loaded ${_libraries.length} libraries');
             if (_libraries.isNotEmpty) {
               _selectedLibrary = _libraries.first['id']?.toString();
+              debugPrint('DEBUG: Selected library: $_selectedLibrary');
             }
           }
           if (info['categories'] != null) {
             _categories = List<Map<String, dynamic>>.from(info['categories'] as List);
+            debugPrint('DEBUG: Loaded ${_categories.length} categories: $_categories');
             if (_categories.isNotEmpty) {
               _selectedCategory = _categories.first['id']?.toString();
+              debugPrint('DEBUG: Selected category: $_selectedCategory');
             }
           }
         }
@@ -96,6 +102,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // Validate category and library are selected
+    if (_selectedCategory == null || _selectedCategory!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a patron category'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (_selectedLibrary == null || _selectedLibrary!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a home library'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    debugPrint('DEBUG: Registering with category=$_selectedCategory, library=$_selectedLibrary');
 
     setState(() => _isLoading = true);
 
@@ -406,7 +435,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       DropdownButtonFormField<String>(
                         value: _selectedCategory,
                         decoration: const InputDecoration(
-                          labelText: 'Patron Category',
+                          labelText: 'Patron Category *',
                           prefixIcon: Icon(Icons.category),
                         ),
                         items: _categories.map((cat) {
@@ -418,6 +447,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         onChanged: (value) {
                           setState(() => _selectedCategory = value);
                         },
+                      ),
+                    if (_categories.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.errorContainer,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.warning,
+                                color: Theme.of(context).colorScheme.error),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Could not load patron categories. Please try again later.',
+                                style: TextStyle(
+                                    color: Theme.of(context).colorScheme.error),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     const SizedBox(height: 32),
 
