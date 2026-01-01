@@ -175,13 +175,17 @@ export async function GET(request) {
       description: cat.description,
     }));
 
-    // If no categories from Koha, provide common defaults as fallback
+    // If no categories from Koha, use known Al-Burhaan categories as fallback
     if (categories.length === 0) {
-      console.warn('No categories from Koha API, using fallback defaults');
+      console.warn('No categories from Koha API, using Al-Burhaan fallback categories');
       categories = [
-        { id: 'PT', name: 'Patron', description: 'Regular patron' },
-        { id: 'S', name: 'Staff', description: 'Staff member' },
+        { id: 'PT', name: 'Patron', description: 'Adult patron' },
         { id: 'ST', name: 'Student', description: 'Student' },
+        { id: 'YA', name: 'Young Adult', description: 'Young Adult (5-17 years)' },
+        { id: 'J', name: 'Juvenile', description: 'Juvenile (child)' },
+        { id: 'K', name: 'Kid', description: 'Kid (child)' },
+        { id: 'T', name: 'Teacher', description: 'Teacher' },
+        { id: 'HB', name: 'Home Bound', description: 'Home Bound patron' },
       ];
     }
 
