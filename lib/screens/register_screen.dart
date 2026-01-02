@@ -157,7 +157,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    debugPrint('DEBUG: Registering with category=$_selectedCategory, library=$_selectedLibrary');
+    // Use selected values or fallback to first item
+    final libraryId = _selectedLibrary ?? _libraries.first['id']?.toString();
+    final categoryId = _selectedCategory ?? _categories.first['id']?.toString();
+
+    debugPrint('DEBUG: Registering with category=$categoryId, library=$libraryId');
 
     setState(() => _isLoading = true);
 
@@ -169,8 +173,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       phone: _phoneController.text.trim().isNotEmpty
           ? _phoneController.text.trim()
           : null,
-      libraryId: _selectedLibrary,
-      categoryId: _selectedCategory,
+      libraryId: libraryId,
+      categoryId: categoryId,
       ssoProvider: widget.ssoProfile?['provider']?.toString(),
       ssoProviderAccountId: widget.ssoProfile?['providerAccountId']?.toString(),
     );
@@ -426,73 +430,57 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     const SizedBox(height: 16),
 
                     // Library Dropdown (required by Koha)
-                    Builder(
-                      builder: (context) {
-                        // Validate that selected value exists in items
-                        final validLibrary = _libraries.isEmpty
-                            ? null
-                            : (_libraries.any((lib) => lib['id']?.toString() == _selectedLibrary)
-                                ? _selectedLibrary
-                                : _libraries.first['id']?.toString());
-                        return DropdownButtonFormField<String>(
-                          value: validLibrary,
-                          decoration: const InputDecoration(
-                            labelText: 'Home Library *',
-                            prefixIcon: Icon(Icons.local_library),
-                          ),
-                          items: _libraries.map((lib) {
-                            return DropdownMenuItem(
-                              value: lib['id']?.toString(),
-                              child: Text(lib['name']?.toString() ?? 'Unknown'),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            setState(() => _selectedLibrary = value);
-                          },
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please select a home library';
-                            }
-                            return null;
-                          },
-                        );
-                      },
-                    ),
+                    if (_libraries.isNotEmpty)
+                      DropdownButtonFormField<String>(
+                        key: ValueKey('lib_${_libraries.map((l) => l['id']).join('_')}'),
+                        value: _libraries.first['id']?.toString(),
+                        decoration: const InputDecoration(
+                          labelText: 'Home Library *',
+                          prefixIcon: Icon(Icons.local_library),
+                        ),
+                        items: _libraries.map((lib) {
+                          return DropdownMenuItem(
+                            value: lib['id']?.toString(),
+                            child: Text(lib['name']?.toString() ?? 'Unknown'),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() => _selectedLibrary = value);
+                        },
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please select a home library';
+                          }
+                          return null;
+                        },
+                      ),
                     const SizedBox(height: 16),
 
                     // Category Dropdown (required by Koha)
-                    Builder(
-                      builder: (context) {
-                        // Validate that selected value exists in items
-                        final validCategory = _categories.isEmpty
-                            ? null
-                            : (_categories.any((cat) => cat['id']?.toString() == _selectedCategory)
-                                ? _selectedCategory
-                                : _categories.first['id']?.toString());
-                        return DropdownButtonFormField<String>(
-                          value: validCategory,
-                          decoration: const InputDecoration(
-                            labelText: 'Patron Category *',
-                            prefixIcon: Icon(Icons.category),
-                          ),
-                          items: _categories.map((cat) {
-                            return DropdownMenuItem(
-                              value: cat['id']?.toString(),
-                              child: Text(cat['name']?.toString() ?? 'Unknown'),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            setState(() => _selectedCategory = value);
-                          },
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please select a patron category';
-                            }
-                            return null;
-                          },
-                        );
-                      },
-                    ),
+                    if (_categories.isNotEmpty)
+                      DropdownButtonFormField<String>(
+                        key: ValueKey('cat_${_categories.map((c) => c['id']).join('_')}'),
+                        value: _categories.first['id']?.toString(),
+                        decoration: const InputDecoration(
+                          labelText: 'Patron Category *',
+                          prefixIcon: Icon(Icons.category),
+                        ),
+                        items: _categories.map((cat) {
+                          return DropdownMenuItem(
+                            value: cat['id']?.toString(),
+                            child: Text(cat['name']?.toString() ?? 'Unknown'),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() => _selectedCategory = value);
+                        },
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please select a patron category';
+                          }
+                          return null;
+                        },
+                      ),
                     const SizedBox(height: 32),
 
                     // Register Button
