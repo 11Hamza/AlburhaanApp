@@ -348,6 +348,9 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
 
   Future<void> _placeHold(BuildContext context) async {
     final authProvider = context.read<AuthProvider>();
+    final booksProvider = context.read<BooksProvider>();
+    final book = booksProvider.selectedBook;
+
     if (authProvider.isGuest) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please login to place holds')),
@@ -355,45 +358,191 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
       return;
     }
 
-    // Show library selection dialog
+    // Fetch libraries first
     final libraries = await _userService.getLibraries();
-    if (!mounted) return;
+    if (!mounted || libraries.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to load pickup locations')),
+      );
+      return;
+    }
 
-    final selectedLibrary = await showDialog<Library>(
+    // Show confirmation dialog with pickup selection
+    Library? selectedLibrary = libraries.first;
+
+    final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Select Pickup Location'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: libraries.length,
-            itemBuilder: (context, index) {
-              final library = libraries[index];
-              return ListTile(
-                title: Text(library.name),
-                subtitle: library.city != null ? Text(library.city!) : null,
-                onTap: () => Navigator.pop(context, library),
-              );
-            },
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Row(
+            children: [
+              Icon(
+                Icons.bookmark_add,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 12),
+              const Expanded(child: Text('Request This Book')),
+            ],
           ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Book title
+                if (book != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceVariant,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.book, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            book.title,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // Explanation
+                const Text(
+                  'You are requesting to borrow this book. Our librarian will review and confirm your hold request.',
+                  style: TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+
+                // Pickup location dropdown
+                const Text(
+                  'Pickup Location',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<Library>(
+                  value: selectedLibrary,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.location_on),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  items: libraries.map((lib) {
+                    return DropdownMenuItem(
+                      value: lib,
+                      child: Text(lib.name),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    setDialogState(() => selectedLibrary = value);
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // Important notes
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.amber.shade300),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.info_outline, size: 18, color: Colors.amber.shade800),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Please Note',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.amber.shade800,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        '• Check your Holds tab for status updates\n'
+                        '• You will be notified when ready for pickup\n'
+                        '• Holds must be collected within 5 days',
+                        style: TextStyle(fontSize: 13, height: 1.5),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(context, true),
+              icon: const Icon(Icons.check, size: 18),
+              label: const Text('Confirm Request'),
+            ),
+          ],
         ),
       ),
     );
 
-    if (selectedLibrary != null && mounted) {
-      final result = await _userService.placeHold(
-        biblioId: widget.biblioId,
-        pickupLibraryId: selectedLibrary.libraryId,
+    if (confirmed == true && selectedLibrary != null && mounted) {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
-      if (result.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Hold placed successfully')),
+      final result = await _userService.placeHold(
+        biblioId: widget.biblioId,
+        pickupLibraryId: selectedLibrary!.libraryId,
+      );
+
+      // Dismiss loading
+      if (mounted) Navigator.pop(context);
+
+      if (result.success && mounted) {
+        // Show success dialog
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            icon: const Icon(Icons.check_circle, color: Colors.green, size: 48),
+            title: const Text('Request Submitted'),
+            content: const Text(
+              'Your hold request has been submitted successfully.\n\n'
+              'Please check your Holds tab for updates. You will be notified when the book is ready for pickup.',
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
         );
-      } else {
+      } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result.error ?? 'Failed to place hold')),
+          SnackBar(
+            content: Text(result.error ?? 'Failed to place hold'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
