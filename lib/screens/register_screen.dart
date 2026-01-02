@@ -136,18 +136,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // Validate category and library are selected
-    if (_selectedCategory == null || _selectedCategory!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select a patron category'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    if (_selectedLibrary == null || _selectedLibrary!.isEmpty) {
+    // Validate library is selected (category is hardcoded)
+    if (_libraries.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please select a home library'),
@@ -157,9 +147,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    // Use selected values or fallback to first item
+    // Use selected library or fallback to first item, category is always PT (Adult)
     final libraryId = _selectedLibrary ?? _libraries.first['id']?.toString();
-    final categoryId = _selectedCategory ?? _categories.first['id']?.toString();
+    const categoryId = 'PT'; // Hardcoded to Patron (Adult)
 
     debugPrint('DEBUG: Registering with category=$categoryId, library=$libraryId');
 
@@ -456,31 +446,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     const SizedBox(height: 16),
 
-                    // Category Dropdown (required by Koha)
-                    if (_categories.isNotEmpty)
-                      DropdownButtonFormField<String>(
-                        key: ValueKey('cat_${_categories.map((c) => c['id']).join('_')}'),
-                        value: _categories.first['id']?.toString(),
-                        decoration: const InputDecoration(
-                          labelText: 'Patron Category *',
-                          prefixIcon: Icon(Icons.category),
-                        ),
-                        items: _categories.map((cat) {
-                          return DropdownMenuItem(
-                            value: cat['id']?.toString(),
-                            child: Text(cat['name']?.toString() ?? 'Unknown'),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          setState(() => _selectedCategory = value);
-                        },
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please select a patron category';
-                          }
-                          return null;
-                        },
-                      ),
+                    // Category is hardcoded to PT (Patron Adult)
                     const SizedBox(height: 32),
 
                     // Register Button
