@@ -427,9 +427,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                     // Library Dropdown (required by Koha)
                     DropdownButtonFormField<String>(
-                      value: _libraries.any((lib) => lib['id']?.toString() == _selectedLibrary)
-                          ? _selectedLibrary
-                          : (_libraries.isNotEmpty ? _libraries.first['id']?.toString() : null),
+                      key: ValueKey('library_${_libraries.length}'),
+                      value: _libraries.isNotEmpty ? _selectedLibrary ?? _libraries.first['id']?.toString() : null,
                       decoration: const InputDecoration(
                         labelText: 'Home Library *',
                         prefixIcon: Icon(Icons.local_library),
@@ -454,9 +453,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                     // Category Dropdown (required by Koha)
                     DropdownButtonFormField<String>(
-                      value: _categories.any((cat) => cat['id']?.toString() == _selectedCategory)
-                          ? _selectedCategory
-                          : (_categories.isNotEmpty ? _categories.first['id']?.toString() : null),
+                      key: ValueKey('category_${_categories.length}'),
+                      value: _categories.isNotEmpty ? _selectedCategory ?? _categories.first['id']?.toString() : null,
                       decoration: const InputDecoration(
                         labelText: 'Patron Category *',
                         prefixIcon: Icon(Icons.category),
