@@ -113,6 +113,7 @@ async function validateCredentials(cardNumber, password) {
   try {
     // Use Koha's password validation endpoint
     const url = `${KOHA_BASE_URL}/auth/password/validation`;
+    console.log('DEBUG: Validating credentials at:', url);
 
     const response = await fetch(url, {
       method: 'POST',
@@ -126,6 +127,14 @@ async function validateCredentials(cardNumber, password) {
         password: password,
       }),
     });
+
+    console.log('DEBUG: Koha password validation response status:', response.status);
+
+    // If not 204/200, log the error response
+    if (response.status !== 204 && response.status !== 200) {
+      const text = await response.text();
+      console.log('DEBUG: Koha validation error response:', text);
+    }
 
     // 204 No Content means valid credentials
     // 400 means invalid credentials
@@ -146,10 +155,10 @@ async function getPatronByCardNumber(cardNumber) {
   console.log('getPatronByCardNumber result:', JSON.stringify(result, null, 2));
 
   if (result.success && result.data && result.data.length > 0) {
-    return result.data[0];
+    return { success: true, data: result.data[0] };
   }
 
-  return null;
+  return { success: false, data: null, error: 'Patron not found' };
 }
 
 /**
