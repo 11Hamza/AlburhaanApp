@@ -130,15 +130,16 @@ async function validateCredentials(cardNumber, password) {
 
     console.log('DEBUG: Koha password validation response status:', response.status);
 
-    // If not 204/200, log the error response
-    if (response.status !== 204 && response.status !== 200) {
+    // Success statuses: 200, 201, 204
+    // 400 means invalid credentials
+    const isSuccess = response.status === 200 || response.status === 201 || response.status === 204;
+
+    if (!isSuccess) {
       const text = await response.text();
       console.log('DEBUG: Koha validation error response:', text);
     }
 
-    // 204 No Content means valid credentials
-    // 400 means invalid credentials
-    return response.status === 204 || response.status === 200;
+    return isSuccess;
   } catch (error) {
     console.error('Credential validation error:', error);
     return false;
