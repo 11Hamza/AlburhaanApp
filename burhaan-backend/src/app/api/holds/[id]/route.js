@@ -34,21 +34,19 @@ export async function GET(request, { params }) {
       return errorResponse('Invalid hold ID', 400);
     }
 
-    // Fetch hold from Koha
-    const result = await kohaRequest(`/holds/${holdId}`);
+    // Fetch patron's holds and find the specific one
+    // (Koha may not support GET /holds/{id} for individual hold lookup)
+    const patronHoldsResult = await kohaRequest(`/holds?patron_id=${user.patronId}`);
 
-    if (!result.success) {
-      if (result.status === 404) {
-        return errorResponse('Hold not found', 404);
-      }
-      return errorResponse(result.error || 'Failed to fetch hold', 500);
+    if (!patronHoldsResult.success) {
+      return errorResponse('Failed to fetch holds', 500);
     }
 
-    const hold = result.data;
+    const patronHolds = Array.isArray(patronHoldsResult.data) ? patronHoldsResult.data : [];
+    const hold = patronHolds.find(h => h.hold_id === holdId);
 
-    // Verify this hold belongs to the user
-    if (hold.patron_id !== user.patronId) {
-      return errorResponse('Unauthorized to view this hold', 403);
+    if (!hold) {
+      return errorResponse('Hold not found', 404);
     }
 
     // Get book details
@@ -94,18 +92,18 @@ export async function PATCH(request, { params }) {
       return errorResponse('Invalid hold ID', 400);
     }
 
-    // First verify this hold belongs to the user
-    const holdResult = await kohaRequest(`/holds/${holdId}`);
+    // Verify this hold belongs to the user by fetching all their holds
+    const patronHoldsResult = await kohaRequest(`/holds?patron_id=${user.patronId}`);
 
-    if (!holdResult.success) {
-      if (holdResult.status === 404) {
-        return errorResponse('Hold not found', 404);
-      }
-      return errorResponse('Failed to verify hold', 500);
+    if (!patronHoldsResult.success) {
+      return errorResponse('Failed to verify hold ownership', 500);
     }
 
-    if (holdResult.data.patron_id !== user.patronId) {
-      return errorResponse('Unauthorized to update this hold', 403);
+    const patronHolds = Array.isArray(patronHoldsResult.data) ? patronHoldsResult.data : [];
+    const holdBelongsToUser = patronHolds.some(h => h.hold_id === holdId);
+
+    if (!holdBelongsToUser) {
+      return errorResponse('Hold not found or unauthorized', 404);
     }
 
     // Get update data
@@ -163,21 +161,21 @@ export async function DELETE(request, { params }) {
       return errorResponse('Invalid hold ID', 400);
     }
 
-    // First verify this hold belongs to the user
-    const holdResult = await kohaRequest(`/holds/${holdId}`);
-    console.log('DEBUG: Hold lookup result:', JSON.stringify(holdResult, null, 2));
+    // Verify this hold belongs to the user by fetching all their holds
+    // (Koha may not support GET /holds/{id} for individual hold lookup)
+    const patronHoldsResult = await kohaRequest(`/holds?patron_id=${user.patronId}`);
+    console.log('DEBUG: Patron holds lookup result:', JSON.stringify(patronHoldsResult, null, 2));
 
-    if (!holdResult.success) {
-      if (holdResult.status === 404) {
-        return errorResponse('Hold not found', 404);
-      }
-      return errorResponse('Failed to verify hold', 500);
+    if (!patronHoldsResult.success) {
+      return errorResponse('Failed to verify hold ownership', 500);
     }
 
-    console.log('DEBUG: Hold patron_id:', holdResult.data.patron_id, 'User patronId:', user.patronId);
+    const patronHolds = Array.isArray(patronHoldsResult.data) ? patronHoldsResult.data : [];
+    const holdBelongsToUser = patronHolds.some(h => h.hold_id === holdId);
+    console.log('DEBUG: Hold belongs to user:', holdBelongsToUser);
 
-    if (holdResult.data.patron_id !== user.patronId) {
-      return errorResponse('Unauthorized to cancel this hold', 403);
+    if (!holdBelongsToUser) {
+      return errorResponse('Hold not found or unauthorized', 404);
     }
 
     // Cancel hold
@@ -185,7 +183,9 @@ export async function DELETE(request, { params }) {
     console.log('DEBUG: Cancel result:', JSON.stringify(cancelResult, null, 2));
 
     if (!cancelResult.success) {
-      return errorResponse(cancelResult.error || 'Failed to cancel hold', 500);
+      // Map common error codes
+      const errorMsg = cancelResult.error || 'Failed to cancel hold';
+      return errorResponse(errorMsg, cancelResult.status || 500);
     }
 
     return successResponse(null, 'Hold cancelled successfully');
