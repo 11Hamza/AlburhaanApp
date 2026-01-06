@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -347,9 +348,11 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
   }
 
   Future<void> _placeHold(BuildContext context) async {
+    debugPrint('DEBUG: _placeHold called');
     final authProvider = context.read<AuthProvider>();
     final booksProvider = context.read<BooksProvider>();
     final book = booksProvider.selectedBook;
+    debugPrint('DEBUG: isGuest=${authProvider.isGuest}, book=${book?.title}');
 
     if (authProvider.isGuest) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -359,6 +362,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
     }
 
     // STEP 1: Confirm they want to request this book
+    debugPrint('DEBUG: Showing STEP 1 dialog');
     final wantToRequest = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -414,9 +418,11 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
       ),
     );
 
+    debugPrint('DEBUG: STEP 1 result: wantToRequest=$wantToRequest');
     if (wantToRequest != true || !mounted) return;
 
     // STEP 2: Select pickup location
+    debugPrint('DEBUG: Showing STEP 2 dialog');
     final libraries = await _userService.getLibraries();
     if (!mounted || libraries.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
