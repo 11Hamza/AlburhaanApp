@@ -41,7 +41,7 @@ dependencies:
   cupertino_icons: ^1.0.6
 
   # SSO Authentication
-  google_sign_in: ^6.2.1
+  google_sign_in: ">=6.2.1 <7.0.0"
 
   # YouTube Player
   youtube_player_flutter: ^9.0.1
