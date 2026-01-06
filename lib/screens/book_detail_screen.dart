@@ -358,7 +358,65 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
       return;
     }
 
-    // Fetch libraries first
+    // STEP 1: Confirm they want to request this book
+    final wantToRequest = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: Icon(
+          Icons.bookmark_add,
+          size: 48,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+        title: const Text('Request This Book?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (book != null) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceVariant,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.book, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        book.title,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            const Text(
+              'You are requesting to borrow this book. Would you like to proceed?',
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('No'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Yes, Continue'),
+          ),
+        ],
+      ),
+    );
+
+    if (wantToRequest != true || !mounted) return;
+
+    // STEP 2: Select pickup location
     final libraries = await _userService.getLibraries();
     if (!mounted || libraries.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -367,67 +425,19 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
       return;
     }
 
-    // Show confirmation dialog with pickup selection
     Library? selectedLibrary = libraries.first;
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Row(
-            children: [
-              Icon(
-                Icons.bookmark_add,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(width: 12),
-              const Expanded(child: Text('Request This Book')),
-            ],
-          ),
+          title: const Text('Select Pickup Location'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Book title
-                if (book != null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceVariant,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.book, size: 20),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            book.title,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // Explanation
-                const Text(
-                  'You are requesting to borrow this book. Our librarian will review and confirm your hold request.',
-                  style: TextStyle(fontSize: 14),
-                ),
-                const SizedBox(height: 16),
-
                 // Pickup location dropdown
-                const Text(
-                  'Pickup Location',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
                 DropdownButtonFormField<Library>(
                   value: selectedLibrary,
                   isExpanded: true,
@@ -448,7 +458,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                     setDialogState(() => selectedLibrary = value);
                   },
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
 
                 // Important notes
                 Container(
@@ -476,9 +486,9 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                       ),
                       const SizedBox(height: 8),
                       const Text(
+                        '• Our librarian will review your request\n'
                         '• Check your Holds tab for status updates\n'
-                        '• You will be notified when ready for pickup\n'
-                        '• Holds must be collected within 5 days',
+                        '• Holds must be collected within 5 days once ready',
                         style: TextStyle(fontSize: 13, height: 1.5),
                       ),
                     ],
@@ -524,10 +534,11 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
           context: context,
           builder: (context) => AlertDialog(
             icon: const Icon(Icons.check_circle, color: Colors.green, size: 48),
-            title: const Text('Request Submitted'),
+            title: const Text('Request Submitted!'),
             content: const Text(
-              'Your hold request has been submitted successfully.\n\n'
-              'Please check your Holds tab for updates. You will be notified when the book is ready for pickup.',
+              'Your hold request has been submitted.\n\n'
+              'Our librarian will review and confirm your request. '
+              'Please check your Holds tab for updates.',
             ),
             actions: [
               FilledButton(
