@@ -16,7 +16,7 @@ import { getBooks } from '@/lib/koha';
 let cachedKohaVideos = [];
 let cacheTime = null;
 let isFetching = false;
-const CACHE_DURATION = 60 * 60 * 1000; // 1 hour
+const CACHE_DURATION = 12 * 60 * 60 * 1000; // 12 hours - same as books
 
 /**
  * Extract YouTube video ID from various URL formats
