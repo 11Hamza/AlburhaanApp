@@ -7,6 +7,7 @@ import { getBookById } from '@/lib/koha';
 import { formatBookResponse } from '@/lib/helpers';
 import { errorResponse, successResponse, getCurrentUser } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import cache, { CACHE_TTL } from '@/lib/cache';
 
 export async function GET(request, { params }) {
   try {
@@ -17,43 +18,47 @@ export async function GET(request, { params }) {
       return errorResponse('Invalid book ID', 400);
     }
 
-    // Fetch book details from Koha
-    const result = await getBookById(biblioId);
+    // Check cache first for book data
+    const cacheKey = `book:${biblioId}`;
+    let book = cache.get(cacheKey);
 
-    if (!result.success) {
-      if (result.status === 404) {
-        return errorResponse('Book not found', 404);
+    if (!book) {
+      // Cache miss - fetch from Koha
+      const result = await getBookById(biblioId);
+
+      if (!result.success) {
+        if (result.status === 404) {
+          return errorResponse('Book not found', 404);
+        }
+        return errorResponse(result.error || 'Failed to fetch book details', result.status || 500);
       }
-      return errorResponse(result.error || 'Failed to fetch book details', result.status || 500);
+
+      book = formatBookResponse(result.data);
+      cache.set(cacheKey, book, CACHE_TTL.BOOK_DETAIL);
     }
 
-    // Track recently viewed if user is authenticated
+    // Track recently viewed if user is authenticated (don't block response)
     const { authenticated, user } = getCurrentUser(request);
     if (authenticated && user && !user.isGuest) {
-      try {
-        await prisma.recentlyViewed.upsert({
-          where: {
-            patronId_biblioId: {
-              patronId: user.patronId,
-              biblioId,
-            },
-          },
-          update: {
-            viewedAt: new Date(),
-          },
-          create: {
+      prisma.recentlyViewed.upsert({
+        where: {
+          patronId_biblioId: {
             patronId: user.patronId,
             biblioId,
-            viewedAt: new Date(),
           },
-        });
-      } catch (dbError) {
+        },
+        update: {
+          viewedAt: new Date(),
+        },
+        create: {
+          patronId: user.patronId,
+          biblioId,
+          viewedAt: new Date(),
+        },
+      }).catch(dbError => {
         console.warn('Failed to track recently viewed:', dbError.message);
-      }
+      });
     }
-
-    // Format and return book details
-    const book = formatBookResponse(result.data);
 
     return successResponse(book);
 

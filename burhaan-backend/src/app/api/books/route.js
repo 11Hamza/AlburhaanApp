@@ -15,42 +15,11 @@
 import { getBooks } from '@/lib/koha';
 import { formatBookResponse, getPaginationParams, paginatedResponse } from '@/lib/helpers';
 import { errorResponse } from '@/lib/auth';
+import cache, { CACHE_TTL } from '@/lib/cache';
 
-// Cached total book count (shared with /api/books/count)
-let cachedTotalBooks = 5177; // Default from count-books.js analysis
-let lastCountFetch = null;
-const COUNT_CACHE_DURATION = 60 * 60 * 1000; // 1 hour
-
-// Background refresh of total count
-async function refreshTotalCount() {
-  if (lastCountFetch && (Date.now() - lastCountFetch < COUNT_CACHE_DURATION)) {
-    return;
-  }
-
-  try {
-    console.log('Background: Refreshing total book count...');
-    let total = 0;
-    let page = 1;
-    let hasMore = true;
-
-    while (hasMore && page <= 100) {
-      const result = await getBooks({ page, perPage: 100 });
-      if (result.success && Array.isArray(result.data) && result.data.length > 0) {
-        total += result.data.length;
-        hasMore = result.data.length === 100;
-        page++;
-      } else {
-        hasMore = false;
-      }
-    }
-
-    cachedTotalBooks = total;
-    lastCountFetch = Date.now();
-    console.log('Background: Total book count updated to', total);
-  } catch (error) {
-    console.error('Background count refresh failed:', error);
-  }
-}
+// Hardcoded total - avoids expensive loop through all 5000+ books
+// Update this value periodically when books are added to catalog
+const TOTAL_BOOKS = 5177;
 
 export async function GET(request) {
   try {
@@ -71,15 +40,25 @@ export async function GET(request) {
     if (language) filters.language = language;
     if (library) filters.library = library;
 
-    // Fetch books from Koha
+    // Generate cache key based on all parameters
+    const cacheKey = cache.key('books', { page, perPage, query, ...filters });
+
+    // Check cache first - returns cached response if valid
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      console.log('Cache HIT:', cacheKey);
+      return Response.json(cached);
+    }
+
+    console.log('Cache MISS:', cacheKey);
+
+    // Fetch books from Koha (only on cache miss)
     const result = await getBooks({
       page,
       perPage,
       query,
       filters,
     });
-
-    console.log('Books API result:', JSON.stringify(result, null, 2).substring(0, 500));
 
     if (!result.success) {
       console.error('Books fetch failed:', result.error, result.status);
@@ -91,17 +70,16 @@ export async function GET(request) {
       ? result.data.map(formatBookResponse)
       : [];
 
-    // Use total from Koha X-Total-Count header, or fall back to cached total
-    // For filtered queries, use the page-based hasMore logic
+    // Use total from Koha header, or hardcoded total for unfiltered queries
     const hasFilters = query || Object.keys(filters).length > 0;
-    const total = result.total || (hasFilters ? null : cachedTotalBooks);
+    const total = result.total || (hasFilters ? null : TOTAL_BOOKS);
 
-    // Trigger background refresh of total count (non-blocking)
-    if (!hasFilters) {
-      refreshTotalCount().catch(() => {});
-    }
+    const response = paginatedResponse(books, page, perPage, total);
 
-    return Response.json(paginatedResponse(books, page, perPage, total));
+    // Cache the response for 10 minutes
+    cache.set(cacheKey, response, CACHE_TTL.BOOKS_LIST);
+
+    return Response.json(response);
 
   } catch (error) {
     console.error('Books listing error:', error);

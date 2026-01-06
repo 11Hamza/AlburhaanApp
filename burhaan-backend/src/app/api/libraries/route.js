@@ -6,9 +6,17 @@
 import { getLibraries } from '@/lib/koha';
 import { errorResponse, successResponse } from '@/lib/auth';
 import { formatLibraryResponse } from '@/lib/helpers';
+import cache, { CACHE_TTL } from '@/lib/cache';
 
 export async function GET(request) {
   try {
+    // Check cache first - libraries rarely change
+    const cacheKey = 'libraries:all';
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      return successResponse(cached);
+    }
+
     // Fetch libraries from Koha
     const result = await getLibraries();
 
@@ -27,10 +35,15 @@ export async function GET(request) {
       return nameA.localeCompare(nameB);
     });
 
-    return successResponse({
+    const response = {
       libraries,
       total: libraries.length,
-    });
+    };
+
+    // Cache for 1 hour - libraries don't change often
+    cache.set(cacheKey, response, CACHE_TTL.LIBRARIES);
+
+    return successResponse(response);
 
   } catch (error) {
     console.error('Libraries fetch error:', error);
