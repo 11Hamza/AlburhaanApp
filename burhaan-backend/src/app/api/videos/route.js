@@ -11,13 +11,12 @@ import { requireAuth, errorResponse, successResponse } from '@/lib/auth';
 import { getPaginationParams, paginatedResponse, validateRequired, formatBookResponse } from '@/lib/helpers';
 import { prisma } from '@/lib/db';
 import { getBooks } from '@/lib/koha';
-import cache, { CACHE_TTL } from '@/lib/cache';
 
-// Fallback cache for when global cache isn't warmed
+// Local cache for videos (serverless functions don't share memory)
 let cachedKohaVideos = [];
 let cacheTime = null;
-let isFetching = false;
-const CACHE_DURATION = 12 * 60 * 60 * 1000; // 12 hours - same as books
+let fetchPromise = null; // Track ongoing fetch to prevent race conditions
+const CACHE_DURATION = 12 * 60 * 60 * 1000; // 12 hours
 
 /**
  * Extract YouTube video ID from various URL formats
@@ -40,67 +39,79 @@ function extractYouTubeId(url) {
 }
 
 /**
- * Fetch all videos from Koha (background task)
+ * Fetch all videos from Koha
+ * Returns a promise that resolves when fetch is complete
+ * Multiple concurrent callers will wait for the same fetch
  */
 async function fetchKohaVideos() {
-  if (isFetching) return;
-  isFetching = true;
-
-  console.log('Background: Fetching videos from Koha...');
-  const videos = [];
-  let page = 1;
-  let hasMore = true;
-  const maxPages = 60;
-
-  try {
-    while (hasMore && page <= maxPages) {
-      const result = await getBooks({ page, perPage: 100 });
-
-      if (result.success && Array.isArray(result.data) && result.data.length > 0) {
-        const pageVideos = result.data
-          .map(formatBookResponse)
-          .filter(book => book.youtubeUrl)
-          .map(book => {
-            const youtubeId = extractYouTubeId(book.youtubeUrl);
-            return {
-              id: `koha-${book.biblioId}`,
-              youtubeId,
-              title: book.title,
-              description: null,
-              category: 'Library',
-              thumbnailUrl: youtubeId
-                ? `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`
-                : null,
-              duration: null,
-              speaker: book.author,
-              language: book.language || 'en',
-              publishedAt: null,
-              createdAt: new Date().toISOString(),
-              biblioId: book.biblioId,
-              youtubeUrl: book.youtubeUrl,
-            };
-          });
-
-        videos.push(...pageVideos);
-
-        if (result.data.length < 100) {
-          hasMore = false;
-        } else {
-          page++;
-        }
-      } else {
-        hasMore = false;
-      }
-    }
-
-    cachedKohaVideos = videos;
-    cacheTime = Date.now();
-    console.log(`Background: Cached ${videos.length} videos from Koha`);
-  } catch (error) {
-    console.error('Background video fetch error:', error);
-  } finally {
-    isFetching = false;
+  // If already fetching, return the existing promise so callers can await it
+  if (fetchPromise) {
+    console.log('Videos: Waiting for existing fetch...');
+    return fetchPromise;
   }
+
+  // Start new fetch
+  fetchPromise = (async () => {
+    console.log('Videos: Fetching all from Koha...');
+    const videos = [];
+    let page = 1;
+    let hasMore = true;
+    const maxPages = 60;
+
+    try {
+      while (hasMore && page <= maxPages) {
+        const result = await getBooks({ page, perPage: 100 });
+
+        if (result.success && Array.isArray(result.data) && result.data.length > 0) {
+          const pageVideos = result.data
+            .map(formatBookResponse)
+            .filter(book => book.youtubeUrl)
+            .map(book => {
+              const youtubeId = extractYouTubeId(book.youtubeUrl);
+              return {
+                id: `koha-${book.biblioId}`,
+                youtubeId,
+                title: book.title,
+                description: null,
+                category: 'Library',
+                thumbnailUrl: youtubeId
+                  ? `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`
+                  : null,
+                duration: null,
+                speaker: book.author,
+                language: book.language || 'en',
+                publishedAt: null,
+                createdAt: new Date().toISOString(),
+                biblioId: book.biblioId,
+                youtubeUrl: book.youtubeUrl,
+              };
+            });
+
+          videos.push(...pageVideos);
+
+          if (result.data.length < 100) {
+            hasMore = false;
+          } else {
+            page++;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+
+      cachedKohaVideos = videos;
+      cacheTime = Date.now();
+      console.log(`Videos: Cached ${videos.length} videos from Koha`);
+      return videos;
+    } catch (error) {
+      console.error('Videos fetch error:', error);
+      throw error;
+    } finally {
+      fetchPromise = null; // Allow new fetches after this completes
+    }
+  })();
+
+  return fetchPromise;
 }
 
 export async function GET(request) {
@@ -131,20 +142,16 @@ export async function GET(request) {
       );
     }
 
-    // Try global cache first (populated by cache-warmer)
-    let kohaVideos = cache.get('videos:all') || [];
+    // Check if cache exists and is fresh
+    let kohaVideos = cachedKohaVideos;
 
-    // Fallback to local cache if global cache is empty
-    if (kohaVideos.length === 0) {
-      kohaVideos = cachedKohaVideos;
-
-      // If local cache is also empty, fetch directly
-      if (!cacheTime && cachedKohaVideos.length === 0 && !isFetching) {
-        console.log('Videos: No cache available, fetching...');
-        await fetchKohaVideos();
-        kohaVideos = cachedKohaVideos;
-      } else if (cacheTime && (Date.now() - cacheTime > CACHE_DURATION)) {
-        fetchKohaVideos().catch(() => {}); // Background refresh
+    if (cachedKohaVideos.length === 0 || (cacheTime && Date.now() - cacheTime > CACHE_DURATION)) {
+      // No cache or stale - fetch (or wait for ongoing fetch)
+      try {
+        kohaVideos = await fetchKohaVideos();
+      } catch (error) {
+        console.error('Failed to fetch videos:', error);
+        kohaVideos = cachedKohaVideos; // Use stale cache if available
       }
     }
 

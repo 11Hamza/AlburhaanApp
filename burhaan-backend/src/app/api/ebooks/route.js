@@ -11,69 +11,80 @@ import { requireAuth, errorResponse, successResponse } from '@/lib/auth';
 import { getPaginationParams, paginatedResponse, validateRequired, formatBookResponse } from '@/lib/helpers';
 import { prisma } from '@/lib/db';
 import { getBooks } from '@/lib/koha';
-import cache, { CACHE_TTL } from '@/lib/cache';
 
-// Fallback cache for when global cache isn't warmed
+// Local cache for ebooks (serverless functions don't share memory)
 let cachedKohaEbooks = [];
 let cacheTime = null;
-let isFetching = false;
-const CACHE_DURATION = 12 * 60 * 60 * 1000; // 12 hours - same as books
+let fetchPromise = null; // Track ongoing fetch to prevent race conditions
+const CACHE_DURATION = 12 * 60 * 60 * 1000; // 12 hours
 
 /**
- * Fetch all ebooks/PDFs from Koha (background task)
+ * Fetch all ebooks/PDFs from Koha
+ * Returns a promise that resolves when fetch is complete
+ * Multiple concurrent callers will wait for the same fetch
  */
 async function fetchKohaEbooks() {
-  if (isFetching) return;
-  isFetching = true;
-
-  console.log('Background: Fetching ebooks from Koha...');
-  const ebooks = [];
-  let page = 1;
-  let hasMore = true;
-  const maxPages = 60;
-
-  try {
-    while (hasMore && page <= maxPages) {
-      const result = await getBooks({ page, perPage: 100 });
-
-      if (result.success && Array.isArray(result.data) && result.data.length > 0) {
-        const pageEbooks = result.data
-          .map(formatBookResponse)
-          .filter(book => book.ebookUrl || book.pdfUrl)
-          .map(book => ({
-            id: `koha-${book.biblioId}`,
-            title: book.title,
-            author: book.author,
-            description: null,
-            category: 'Library',
-            coverUrl: book.imageUrl,
-            accessUrl: book.pdfUrl || book.ebookUrl,
-            fileType: book.pdfUrl ? 'pdf' : 'ebook',
-            language: book.language || 'en',
-            createdAt: new Date().toISOString(),
-            biblioId: book.biblioId,
-          }));
-
-        ebooks.push(...pageEbooks);
-
-        if (result.data.length < 100) {
-          hasMore = false;
-        } else {
-          page++;
-        }
-      } else {
-        hasMore = false;
-      }
-    }
-
-    cachedKohaEbooks = ebooks;
-    cacheTime = Date.now();
-    console.log(`Background: Cached ${ebooks.length} ebooks from Koha`);
-  } catch (error) {
-    console.error('Background ebook fetch error:', error);
-  } finally {
-    isFetching = false;
+  // If already fetching, return the existing promise so callers can await it
+  if (fetchPromise) {
+    console.log('Ebooks: Waiting for existing fetch...');
+    return fetchPromise;
   }
+
+  // Start new fetch
+  fetchPromise = (async () => {
+    console.log('Ebooks: Fetching all from Koha...');
+    const ebooks = [];
+    let page = 1;
+    let hasMore = true;
+    const maxPages = 60;
+
+    try {
+      while (hasMore && page <= maxPages) {
+        const result = await getBooks({ page, perPage: 100 });
+
+        if (result.success && Array.isArray(result.data) && result.data.length > 0) {
+          const pageEbooks = result.data
+            .map(formatBookResponse)
+            .filter(book => book.ebookUrl || book.pdfUrl)
+            .map(book => ({
+              id: `koha-${book.biblioId}`,
+              title: book.title,
+              author: book.author,
+              description: null,
+              category: 'Library',
+              coverUrl: book.imageUrl,
+              accessUrl: book.pdfUrl || book.ebookUrl,
+              fileType: book.pdfUrl ? 'pdf' : 'ebook',
+              language: book.language || 'en',
+              createdAt: new Date().toISOString(),
+              biblioId: book.biblioId,
+            }));
+
+          ebooks.push(...pageEbooks);
+
+          if (result.data.length < 100) {
+            hasMore = false;
+          } else {
+            page++;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+
+      cachedKohaEbooks = ebooks;
+      cacheTime = Date.now();
+      console.log(`Ebooks: Cached ${ebooks.length} ebooks from Koha`);
+      return ebooks;
+    } catch (error) {
+      console.error('Ebooks fetch error:', error);
+      throw error;
+    } finally {
+      fetchPromise = null; // Allow new fetches after this completes
+    }
+  })();
+
+  return fetchPromise;
 }
 
 export async function GET(request) {
@@ -104,20 +115,16 @@ export async function GET(request) {
       );
     }
 
-    // Try global cache first (populated by cache-warmer)
-    let kohaEbooks = cache.get('ebooks:all') || [];
+    // Check if cache exists and is fresh
+    let kohaEbooks = cachedKohaEbooks;
 
-    // Fallback to local cache if global cache is empty
-    if (kohaEbooks.length === 0) {
-      kohaEbooks = cachedKohaEbooks;
-
-      // If local cache is also empty, fetch directly
-      if (!cacheTime && cachedKohaEbooks.length === 0 && !isFetching) {
-        console.log('Ebooks: No cache available, fetching...');
-        await fetchKohaEbooks();
-        kohaEbooks = cachedKohaEbooks;
-      } else if (cacheTime && (Date.now() - cacheTime > CACHE_DURATION)) {
-        fetchKohaEbooks().catch(() => {}); // Background refresh
+    if (cachedKohaEbooks.length === 0 || (cacheTime && Date.now() - cacheTime > CACHE_DURATION)) {
+      // No cache or stale - fetch (or wait for ongoing fetch)
+      try {
+        kohaEbooks = await fetchKohaEbooks();
+      } catch (error) {
+        console.error('Failed to fetch ebooks:', error);
+        kohaEbooks = cachedKohaEbooks; // Use stale cache if available
       }
     }
 
