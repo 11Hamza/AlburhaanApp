@@ -206,7 +206,9 @@ class UserService {
 
   /// Cancel a hold
   Future<bool> cancelHold(int holdId) async {
+    debugPrint('DEBUG: Cancelling hold with ID: $holdId');
     final response = await _api.delete('/holds/$holdId');
+    debugPrint('DEBUG: Cancel hold response - success: ${response.success}, error: ${response.error}, statusCode: ${response.statusCode}');
     return response.success;
   }
 

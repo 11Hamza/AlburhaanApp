@@ -157,12 +157,15 @@ export async function DELETE(request, { params }) {
     const { id } = await params;
     const holdId = parseInt(id, 10);
 
+    console.log('DEBUG: Cancel hold request - holdId:', holdId, 'patronId:', user.patronId);
+
     if (isNaN(holdId)) {
       return errorResponse('Invalid hold ID', 400);
     }
 
     // First verify this hold belongs to the user
     const holdResult = await kohaRequest(`/holds/${holdId}`);
+    console.log('DEBUG: Hold lookup result:', JSON.stringify(holdResult, null, 2));
 
     if (!holdResult.success) {
       if (holdResult.status === 404) {
@@ -171,12 +174,15 @@ export async function DELETE(request, { params }) {
       return errorResponse('Failed to verify hold', 500);
     }
 
+    console.log('DEBUG: Hold patron_id:', holdResult.data.patron_id, 'User patronId:', user.patronId);
+
     if (holdResult.data.patron_id !== user.patronId) {
       return errorResponse('Unauthorized to cancel this hold', 403);
     }
 
     // Cancel hold
     const cancelResult = await cancelHold(holdId);
+    console.log('DEBUG: Cancel result:', JSON.stringify(cancelResult, null, 2));
 
     if (!cancelResult.success) {
       return errorResponse(cancelResult.error || 'Failed to cancel hold', 500);
