@@ -336,15 +336,21 @@ async function getPatronHolds(patronId) {
  * Place a hold
  */
 async function placeHold({ patronId, biblioId, pickupLibraryId, notes = '' }) {
-  return kohaRequest('/holds', {
+  const holdData = {
+    patron_id: patronId,
+    biblio_id: biblioId,
+    pickup_library_id: pickupLibraryId,
+    notes,
+  };
+  console.log('DEBUG: Sending hold request to Koha:', JSON.stringify(holdData, null, 2));
+
+  const result = await kohaRequest('/holds', {
     method: 'POST',
-    body: JSON.stringify({
-      patron_id: patronId,
-      biblio_id: biblioId,
-      pickup_library_id: pickupLibraryId,
-      notes,
-    }),
+    body: JSON.stringify(holdData),
   });
+
+  console.log('DEBUG: Koha hold response:', JSON.stringify(result, null, 2));
+  return result;
 }
 
 /**

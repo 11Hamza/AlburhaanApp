@@ -105,6 +105,8 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
+    console.log('DEBUG: Place hold request body:', body);
+    console.log('DEBUG: User patronId:', user.patronId);
 
     // Validate required fields
     const validation = validateRequired(body, ['biblioId', 'pickupLibraryId']);
@@ -121,6 +123,8 @@ export async function POST(request) {
       pickupLibraryId,
       notes: notes || '',
     });
+
+    console.log('DEBUG: Koha placeHold result:', JSON.stringify(holdResult, null, 2));
 
     if (!holdResult.success) {
       // Common hold errors
