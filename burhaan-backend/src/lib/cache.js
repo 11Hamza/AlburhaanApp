@@ -92,12 +92,12 @@ const cache = new Cache();
 
 // Cache TTL constants (in milliseconds)
 export const CACHE_TTL = {
-  BOOKS_LIST: 10 * 60 * 1000,      // 10 minutes for book listings
-  BOOK_DETAIL: 30 * 60 * 1000,     // 30 minutes for individual books
-  BOOK_COUNT: 60 * 60 * 1000,      // 1 hour for total count
-  LIBRARIES: 60 * 60 * 1000,       // 1 hour for libraries
-  CATEGORIES: 60 * 60 * 1000,      // 1 hour for categories
-  AVAILABILITY: 2 * 60 * 1000,     // 2 minutes for availability (more real-time)
+  BOOKS_LIST: 12 * 60 * 60 * 1000,   // 12 hours for book listings
+  BOOK_DETAIL: 24 * 60 * 60 * 1000,  // 24 hours for individual books (rarely change)
+  BOOK_COUNT: 24 * 60 * 60 * 1000,   // 24 hours for total count
+  LIBRARIES: 24 * 60 * 60 * 1000,    // 24 hours for libraries (almost never change)
+  CATEGORIES: 24 * 60 * 60 * 1000,   // 24 hours for categories
+  AVAILABILITY: 5 * 60 * 1000,       // 5 minutes for availability (needs to be fresh)
 };
 
 export default cache;
