@@ -127,19 +127,62 @@ export async function POST(request) {
     console.log('DEBUG: Koha placeHold result:', JSON.stringify(holdResult, null, 2));
 
     if (!holdResult.success) {
-      // Common hold errors
+      // Map Koha error codes to user-friendly messages
       const errorMessages = {
+        // Standard Koha error codes
         'hold_not_allowed': 'Holds are not allowed on this item',
+        'Hold_not_allowed': 'Holds are not allowed on this item',
+        'already_on_hold': 'You already have a hold on this book',
         'item_already_on_hold': 'You already have a hold on this item',
+        'too_many_holds': 'You have reached your maximum number of holds. Please cancel an existing hold first.',
         'max_holds_reached': 'You have reached your maximum number of holds',
-        'patron_not_found': 'Patron not found',
-        'biblio_not_found': 'Book not found',
+        'on_shelf_holds_not_allowed': 'This book is currently available on the shelf. Please visit the library to borrow it.',
+        'patron_not_found': 'Your library account was not found',
+        'biblio_not_found': 'This book could not be found in the catalog',
+        'no_available_items': 'No copies of this book are available for holds',
+        'item_level_hold_not_allowed': 'Item-level holds are not allowed',
+        'patron_expired': 'Your library membership has expired. Please renew your membership.',
+        'patron_debarred': 'Your account is blocked. Please contact the library.',
+        'debt_limit_exceeded': 'You have outstanding fines that prevent placing holds. Please pay your fines first.',
       };
 
-      const errorCode = holdResult.data?.error_code || holdResult.error;
-      const message = errorMessages[errorCode] || holdResult.error || 'Failed to place hold';
+      // Get error code from multiple possible locations
+      const errorCode = holdResult.errorCode
+        || holdResult.data?.error_code
+        || holdResult.data?.error
+        || null;
 
-      return errorResponse(message, 400, errorCode);
+      // Get error message - check multiple locations
+      let message = errorMessages[errorCode];
+
+      if (!message) {
+        // Try to extract message from error response
+        const rawError = holdResult.error || holdResult.data?.error || holdResult.data?.message;
+
+        // Check if error contains recognizable patterns
+        if (typeof rawError === 'string') {
+          if (rawError.toLowerCase().includes('already') && rawError.toLowerCase().includes('hold')) {
+            message = 'You already have a hold on this book';
+          } else if (rawError.toLowerCase().includes('maximum') || rawError.toLowerCase().includes('too many')) {
+            message = 'You have reached your maximum number of holds';
+          } else if (rawError.toLowerCase().includes('not allowed')) {
+            message = 'Holds are not allowed on this item';
+          } else if (rawError.toLowerCase().includes('available') || rawError.toLowerCase().includes('on shelf')) {
+            message = 'This book is currently available. Please visit the library to borrow it.';
+          } else if (rawError.toLowerCase().includes('expired')) {
+            message = 'Your library membership has expired';
+          } else if (rawError.toLowerCase().includes('blocked') || rawError.toLowerCase().includes('debarred')) {
+            message = 'Your account is blocked. Please contact the library.';
+          } else {
+            message = rawError;
+          }
+        } else {
+          message = 'Unable to place hold. Please try again or contact the library.';
+        }
+      }
+
+      console.log('DEBUG: Hold error - code:', errorCode, 'message:', message);
+      return errorResponse(message, holdResult.status || 400, errorCode);
     }
 
     // Get book details for response

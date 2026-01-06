@@ -69,7 +69,8 @@ async function kohaRequest(endpoint, options = {}, userCredentials = null) {
         success: false,
         status: response.status,
         error: data.error || data.message || 'Request failed',
-        data: null,
+        errorCode: data.error_code || null,
+        data: data, // Preserve full error response for debugging
         total: null,
       };
     }

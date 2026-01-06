@@ -555,10 +555,21 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
           ),
         );
       } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result.error ?? 'Failed to place hold'),
-            backgroundColor: Colors.red,
+        // Show error dialog with details
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            icon: const Icon(Icons.error_outline, color: Colors.red, size: 48),
+            title: const Text('Unable to Place Hold'),
+            content: Text(
+              result.error ?? 'Failed to place hold. Please try again or contact the library.',
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
           ),
         );
       }
