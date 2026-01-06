@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
 import '../services/user_service.dart';
-import '../services/api_service.dart';
-import '../services/notification_service.dart';
 
 enum AuthStatus {
   initial,
@@ -69,8 +67,6 @@ class AuthProvider extends ChangeNotifier {
       _isGuest = false;
       _status = AuthStatus.authenticated;
       await _fetchUserProfile();
-      // Register for push notifications
-      NotificationService().registerToken();
       notifyListeners();
       return true;
     } else {
@@ -100,40 +96,6 @@ class AuthProvider extends ChangeNotifier {
       _status = AuthStatus.error;
       notifyListeners();
       return false;
-    }
-  }
-
-  /// Login with Google
-  Future<Map<String, dynamic>> loginWithGoogle() async {
-    _status = AuthStatus.loading;
-    _error = null;
-    notifyListeners();
-
-    final result = await _authService.loginWithGoogle();
-
-    if (result.success) {
-      _user = result.user;
-      _isGuest = false;
-      _status = AuthStatus.authenticated;
-      await _fetchUserProfile();
-      // Register for push notifications
-      NotificationService().registerToken();
-      notifyListeners();
-      return {'success': true};
-    } else if (result.needsRegistration) {
-      _status = AuthStatus.unauthenticated;
-      notifyListeners();
-      return {
-        'success': false,
-        'needsRegistration': true,
-        'ssoProfile': result.ssoProfile,
-        'error': result.error,
-      };
-    } else {
-      _error = result.error;
-      _status = AuthStatus.error;
-      notifyListeners();
-      return {'success': false, 'error': result.error};
     }
   }
 
@@ -168,8 +130,6 @@ class AuthProvider extends ChangeNotifier {
       _isGuest = false;
       _status = AuthStatus.authenticated;
       await _fetchUserProfile();
-      // Register for push notifications
-      NotificationService().registerToken();
       notifyListeners();
       return true;
     } else {
@@ -187,8 +147,6 @@ class AuthProvider extends ChangeNotifier {
 
   /// Logout
   Future<void> logout() async {
-    // Unregister push token before logout
-    await NotificationService().unregisterToken();
     await _authService.logout();
     _user = null;
     _isGuest = false;

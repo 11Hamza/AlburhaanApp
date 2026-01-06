@@ -7,14 +7,9 @@ import 'providers/books_provider.dart';
 import 'providers/settings_provider.dart';
 import 'screens/splash_screen.dart';
 import 'l10n/app_localizations.dart';
-import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Initialize notifications (Firebase)
-  await NotificationService().initialize();
-
   runApp(const BurhaanApp());
 }
 
