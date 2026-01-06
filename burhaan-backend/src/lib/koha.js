@@ -56,20 +56,28 @@ async function kohaRequest(endpoint, options = {}, userCredentials = null) {
 
     // Handle different response types
     const contentType = response.headers.get('content-type');
-    let data;
+    let data = null;
 
-    if (contentType && contentType.includes('application/json')) {
-      data = await response.json();
-    } else {
-      data = await response.text();
+    // Only try to parse body if there's content
+    const responseText = await response.text();
+    if (responseText) {
+      if (contentType && contentType.includes('application/json')) {
+        try {
+          data = JSON.parse(responseText);
+        } catch {
+          data = responseText;
+        }
+      } else {
+        data = responseText;
+      }
     }
 
     if (!response.ok) {
       return {
         success: false,
         status: response.status,
-        error: data.error || data.message || 'Request failed',
-        errorCode: data.error_code || null,
+        error: data?.error || data?.message || 'Request failed',
+        errorCode: data?.error_code || null,
         data: data, // Preserve full error response for debugging
         total: null,
       };
