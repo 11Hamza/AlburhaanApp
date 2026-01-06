@@ -661,7 +661,63 @@ class _BookPreviewSheetState extends State<_BookPreviewSheet> {
       return;
     }
 
-    // Fetch libraries
+    // STEP 1: Confirm they want to request this book
+    final wantToRequest = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: Icon(
+          Icons.bookmark_add,
+          size: 48,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+        title: const Text('Request This Book?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceVariant,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.book, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      book.title,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'You are requesting to borrow this book. Would you like to proceed?',
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('No'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Yes, Continue'),
+          ),
+        ],
+      ),
+    );
+
+    if (wantToRequest != true || !mounted) return;
+
+    // STEP 2: Fetch libraries and show selection dialog
     final libraries = await _userService.getLibraries();
     if (!mounted) return;
 
@@ -672,14 +728,93 @@ class _BookPreviewSheetState extends State<_BookPreviewSheet> {
       return;
     }
 
-    // Show library selection dialog
-    final selectedLibrary = await showDialog<Library>(
+    // Show library selection dialog with notes
+    Library? selectedLibrary = libraries.first;
+
+    final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => _LibrarySelectionDialog(libraries: libraries),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Select Pickup Location'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DropdownButtonFormField<Library>(
+                  value: selectedLibrary,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.location_on),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  items: libraries.map((lib) {
+                    return DropdownMenuItem(
+                      value: lib,
+                      child: Text(lib.name),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    setDialogState(() => selectedLibrary = value);
+                  },
+                ),
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.amber.shade300),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.info_outline, size: 18, color: Colors.amber.shade800),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Please Note',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.amber.shade800,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        '• Our librarian will review your request\n'
+                        '• Check your Holds tab for status updates\n'
+                        '• Holds must be collected within 5 days once ready',
+                        style: TextStyle(fontSize: 13, height: 1.5),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(context, true),
+              icon: const Icon(Icons.check, size: 18),
+              label: const Text('Confirm Request'),
+            ),
+          ],
+        ),
+      ),
     );
 
-    if (selectedLibrary != null && mounted) {
-      await _placeHold(selectedLibrary);
+    if (confirmed == true && selectedLibrary != null && mounted) {
+      await _placeHold(selectedLibrary!);
     }
   }
 
@@ -695,10 +830,26 @@ class _BookPreviewSheetState extends State<_BookPreviewSheet> {
       setState(() => _isPlacingHold = false);
 
       if (result.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Hold placed! Pickup at ${library.name}')),
+        // Show success dialog
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            icon: const Icon(Icons.check_circle, color: Colors.green, size: 48),
+            title: const Text('Request Submitted!'),
+            content: const Text(
+              'Your hold request has been submitted.\n\n'
+              'Our librarian will review and confirm your request. '
+              'Please check your Holds tab for updates.',
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
         );
-        Navigator.pop(context); // Close the sheet
+        if (mounted) Navigator.pop(context); // Close the sheet
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
