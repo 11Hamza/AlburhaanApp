@@ -6,13 +6,16 @@
 const KOHA_BASE_URL = process.env.KOHA_BASE_URL || 'https://library.al-burhaan.org/api/v1';
 const KOHA_USERNAME = process.env.KOHA_USERNAME;
 const KOHA_PASSWORD = process.env.KOHA_PASSWORD;
+const isDev = process.env.NODE_ENV !== 'production';
 
-// Log config on first load (for debugging)
-console.log('Koha Config:', {
-  baseUrl: KOHA_BASE_URL,
-  usernameSet: !!KOHA_USERNAME,
-  passwordSet: !!KOHA_PASSWORD,
-});
+// Only log config in development
+if (isDev) {
+  console.log('Koha Config:', {
+    baseUrl: KOHA_BASE_URL,
+    usernameSet: !!KOHA_USERNAME,
+    passwordSet: !!KOHA_PASSWORD,
+  });
+}
 
 /**
  * Create Basic Auth header
@@ -46,7 +49,7 @@ async function kohaRequest(endpoint, options = {}, userCredentials = null) {
   }
 
   try {
-    console.log('Koha request:', url);
+    if (isDev) console.log('Koha request:', url);
     const response = await fetch(url, {
       ...options,
       headers,
@@ -89,12 +92,14 @@ async function kohaRequest(endpoint, options = {}, userCredentials = null) {
       || response.headers.get('x-total-count')
       || response.headers.get('Total-Count');
 
-    // Log headers for debugging
-    console.log('Koha response headers:', {
-      'X-Total-Count': response.headers.get('X-Total-Count'),
-      'x-total-count': response.headers.get('x-total-count'),
-      'content-type': response.headers.get('content-type'),
-    });
+    // Log headers for debugging (dev only)
+    if (isDev) {
+      console.log('Koha response headers:', {
+        'X-Total-Count': response.headers.get('X-Total-Count'),
+        'x-total-count': response.headers.get('x-total-count'),
+        'content-type': response.headers.get('content-type'),
+      });
+    }
 
     return {
       success: true,
@@ -122,7 +127,6 @@ async function validateCredentials(cardNumber, password) {
   try {
     // Use Koha's password validation endpoint
     const url = `${KOHA_BASE_URL}/auth/password/validation`;
-    console.log('DEBUG: Validating credentials at:', url);
 
     const response = await fetch(url, {
       method: 'POST',
@@ -137,20 +141,18 @@ async function validateCredentials(cardNumber, password) {
       }),
     });
 
-    console.log('DEBUG: Koha password validation response status:', response.status);
-
     // Success statuses: 200, 201, 204
     // 400 means invalid credentials
     const isSuccess = response.status === 200 || response.status === 201 || response.status === 204;
 
-    if (!isSuccess) {
+    if (!isSuccess && isDev) {
       const text = await response.text();
-      console.log('DEBUG: Koha validation error response:', text);
+      console.log('Koha validation error:', text);
     }
 
     return isSuccess;
   } catch (error) {
-    console.error('Credential validation error:', error);
+    console.error('Credential validation error:', error.message);
     return false;
   }
 }
@@ -161,8 +163,6 @@ async function validateCredentials(cardNumber, password) {
 async function getPatronByCardNumber(cardNumber) {
   const query = JSON.stringify({ cardnumber: cardNumber });
   const result = await kohaRequest(`/patrons?q=${encodeURIComponent(query)}`);
-
-  console.log('getPatronByCardNumber result:', JSON.stringify(result, null, 2));
 
   if (result.success && result.data && result.data.length > 0) {
     return { success: true, data: result.data[0] };
@@ -227,13 +227,6 @@ async function getBooks({ page = 1, perPage = 10, query = null, filters = {} } =
   // Note: subject and language filters are not directly supported by Koha biblios API
   // They would need MARC field searching which requires a different approach
   // For now, we skip these filters to avoid 500 errors
-  if (filters.subject) {
-    console.log('Subject filter requested but not supported by Koha biblios API:', filters.subject);
-  }
-
-  if (filters.language) {
-    console.log('Language filter requested but not supported by Koha biblios API:', filters.language);
-  }
 
   if (Object.keys(queryObj).length > 0) {
     url += `&q=${encodeURIComponent(JSON.stringify(queryObj))}`;
@@ -351,14 +344,12 @@ async function placeHold({ patronId, biblioId, pickupLibraryId, notes = '' }) {
     pickup_library_id: pickupLibraryId,
     notes,
   };
-  console.log('DEBUG: Sending hold request to Koha:', JSON.stringify(holdData, null, 2));
 
   const result = await kohaRequest('/holds', {
     method: 'POST',
     body: JSON.stringify(holdData),
   });
 
-  console.log('DEBUG: Koha hold response:', JSON.stringify(result, null, 2));
   return result;
 }
 

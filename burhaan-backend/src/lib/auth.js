@@ -5,8 +5,16 @@
 
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key';
+// SECURITY: JWT_SECRET must be set in production
+const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+
+if (!JWT_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('FATAL: JWT_SECRET environment variable is required in production');
+}
+
+// Use a dev-only fallback (will fail in production due to check above)
+const EFFECTIVE_JWT_SECRET = JWT_SECRET || 'dev-only-insecure-secret';
 
 /**
  * Generate JWT token for a patron
@@ -23,7 +31,7 @@ export function generateToken(patron) {
     isGuest: patron.isGuest || false,
   };
 
-  return jwt.sign(payload, JWT_SECRET, {
+  return jwt.sign(payload, EFFECTIVE_JWT_SECRET, {
     expiresIn: JWT_EXPIRES_IN,
   });
 }
@@ -33,7 +41,7 @@ export function generateToken(patron) {
  */
 export function verifyToken(token) {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, EFFECTIVE_JWT_SECRET);
     return { valid: true, decoded, error: null };
   } catch (error) {
     return { valid: false, decoded: null, error: error.message };

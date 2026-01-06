@@ -18,9 +18,7 @@ export async function POST(request) {
     }
 
     // Validate credentials against Koha
-    console.log('DEBUG: Attempting login with cardNumber:', cardNumber);
     const isValid = await validateCredentials(cardNumber, password);
-    console.log('DEBUG: Credential validation result:', isValid);
 
     if (!isValid) {
       return errorResponse('Invalid card number or password', 401, 'INVALID_CREDENTIALS');

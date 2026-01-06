@@ -155,8 +155,6 @@ export async function DELETE(request, { params }) {
     const { id } = await params;
     const holdId = parseInt(id, 10);
 
-    console.log('DEBUG: Cancel hold request - holdId:', holdId, 'patronId:', user.patronId);
-
     if (isNaN(holdId)) {
       return errorResponse('Invalid hold ID', 400);
     }
@@ -164,7 +162,6 @@ export async function DELETE(request, { params }) {
     // Verify this hold belongs to the user by fetching all their holds
     // (Koha may not support GET /holds/{id} for individual hold lookup)
     const patronHoldsResult = await kohaRequest(`/holds?patron_id=${user.patronId}`);
-    console.log('DEBUG: Patron holds lookup result:', JSON.stringify(patronHoldsResult, null, 2));
 
     if (!patronHoldsResult.success) {
       return errorResponse('Failed to verify hold ownership', 500);
@@ -172,7 +169,6 @@ export async function DELETE(request, { params }) {
 
     const patronHolds = Array.isArray(patronHoldsResult.data) ? patronHoldsResult.data : [];
     const holdBelongsToUser = patronHolds.some(h => h.hold_id === holdId);
-    console.log('DEBUG: Hold belongs to user:', holdBelongsToUser);
 
     if (!holdBelongsToUser) {
       return errorResponse('Hold not found or unauthorized', 404);
@@ -180,7 +176,6 @@ export async function DELETE(request, { params }) {
 
     // Cancel hold
     const cancelResult = await cancelHold(holdId);
-    console.log('DEBUG: Cancel result:', JSON.stringify(cancelResult, null, 2));
 
     if (!cancelResult.success) {
       // Map common error codes
