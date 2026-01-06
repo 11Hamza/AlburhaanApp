@@ -11,8 +11,9 @@ import { requireAuth, errorResponse, successResponse } from '@/lib/auth';
 import { getPaginationParams, paginatedResponse, validateRequired, formatBookResponse } from '@/lib/helpers';
 import { prisma } from '@/lib/db';
 import { getBooks } from '@/lib/koha';
+import cache, { CACHE_TTL } from '@/lib/cache';
 
-// Cache for Koha videos (fetching all pages is slow)
+// Fallback cache for when global cache isn't warmed
 let cachedKohaVideos = [];
 let cacheTime = null;
 let isFetching = false;
@@ -130,17 +131,21 @@ export async function GET(request) {
       );
     }
 
-    // Use cached Koha videos
-    let kohaVideos = cachedKohaVideos;
+    // Try global cache first (populated by cache-warmer)
+    let kohaVideos = cache.get('videos:all') || [];
 
-    // If cache is empty, wait for initial fetch (with timeout)
-    // If cache is stale, refresh in background
-    if (!cacheTime && cachedKohaVideos.length === 0 && !isFetching) {
-      console.log('Videos: Cache empty, waiting for initial fetch...');
-      await fetchKohaVideos(); // Wait for first fetch
+    // Fallback to local cache if global cache is empty
+    if (kohaVideos.length === 0) {
       kohaVideos = cachedKohaVideos;
-    } else if (cacheTime && (Date.now() - cacheTime > CACHE_DURATION)) {
-      fetchKohaVideos().catch(() => {}); // Background refresh
+
+      // If local cache is also empty, fetch directly
+      if (!cacheTime && cachedKohaVideos.length === 0 && !isFetching) {
+        console.log('Videos: No cache available, fetching...');
+        await fetchKohaVideos();
+        kohaVideos = cachedKohaVideos;
+      } else if (cacheTime && (Date.now() - cacheTime > CACHE_DURATION)) {
+        fetchKohaVideos().catch(() => {}); // Background refresh
+      }
     }
 
     // Filter koha videos by search if provided

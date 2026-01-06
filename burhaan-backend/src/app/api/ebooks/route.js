@@ -11,8 +11,9 @@ import { requireAuth, errorResponse, successResponse } from '@/lib/auth';
 import { getPaginationParams, paginatedResponse, validateRequired, formatBookResponse } from '@/lib/helpers';
 import { prisma } from '@/lib/db';
 import { getBooks } from '@/lib/koha';
+import cache, { CACHE_TTL } from '@/lib/cache';
 
-// Cache for Koha ebooks (fetching all pages is slow)
+// Fallback cache for when global cache isn't warmed
 let cachedKohaEbooks = [];
 let cacheTime = null;
 let isFetching = false;
@@ -103,17 +104,21 @@ export async function GET(request) {
       );
     }
 
-    // Use cached Koha ebooks
-    let kohaEbooks = cachedKohaEbooks;
+    // Try global cache first (populated by cache-warmer)
+    let kohaEbooks = cache.get('ebooks:all') || [];
 
-    // If cache is empty, wait for initial fetch
-    // If cache is stale, refresh in background
-    if (!cacheTime && cachedKohaEbooks.length === 0 && !isFetching) {
-      console.log('Ebooks: Cache empty, waiting for initial fetch...');
-      await fetchKohaEbooks();
+    // Fallback to local cache if global cache is empty
+    if (kohaEbooks.length === 0) {
       kohaEbooks = cachedKohaEbooks;
-    } else if (cacheTime && (Date.now() - cacheTime > CACHE_DURATION)) {
-      fetchKohaEbooks().catch(() => {}); // Background refresh
+
+      // If local cache is also empty, fetch directly
+      if (!cacheTime && cachedKohaEbooks.length === 0 && !isFetching) {
+        console.log('Ebooks: No cache available, fetching...');
+        await fetchKohaEbooks();
+        kohaEbooks = cachedKohaEbooks;
+      } else if (cacheTime && (Date.now() - cacheTime > CACHE_DURATION)) {
+        fetchKohaEbooks().catch(() => {}); // Background refresh
+      }
     }
 
     // Filter koha ebooks by search if provided
