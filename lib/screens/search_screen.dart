@@ -36,12 +36,15 @@ class _SearchScreenState extends State<SearchScreen> {
     _authorController.dispose();
     _isbnController.dispose();
     _scrollController.dispose();
-    // Clear search results when leaving the screen
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) return;
-      // Use Future.microtask to safely clear after dispose
-    });
     super.dispose();
+  }
+
+  /// Called when user pops back from search screen
+  void _onPopInvoked(bool didPop, dynamic result) {
+    if (didPop) {
+      // Clear search results when leaving the screen
+      context.read<BooksProvider>().clearSearchResults();
+    }
   }
 
   void _onSearchChanged() {
@@ -100,15 +103,17 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF1A365D),
-        foregroundColor: Colors.white,
-        title: const Text('Search Library'),
-        elevation: 0,
-      ),
-      body: Column(
+    return PopScope(
+      onPopInvokedWithResult: _onPopInvoked,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8F9FA),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF1A365D),
+          foregroundColor: Colors.white,
+          title: const Text('Search Library'),
+          elevation: 0,
+        ),
+        body: Column(
         children: [
           // Search Section
           Container(
@@ -318,6 +323,7 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
