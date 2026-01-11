@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -18,28 +19,54 @@ class _SearchScreenState extends State<SearchScreen> {
   final _isbnController = TextEditingController();
   final _scrollController = ScrollController();
   bool _showAdvanced = false;
+  Timer? _debounceTimer;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _searchController.addListener(_onSearchChanged);
   }
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
+    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     _authorController.dispose();
     _isbnController.dispose();
     _scrollController.dispose();
+    // Clear search results when leaving the screen
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) return;
+      // Use Future.microtask to safely clear after dispose
+    });
     super.dispose();
+  }
+
+  void _onSearchChanged() {
+    setState(() {}); // Update UI for clear button visibility
+
+    // Only use live search when not in advanced mode
+    if (_showAdvanced) return;
+
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 400), () {
+      final booksProvider = context.read<BooksProvider>();
+      if (_searchController.text.isNotEmpty) {
+        booksProvider.liveSearch(_searchController.text);
+      } else {
+        booksProvider.clearSearchResults();
+      }
+    });
   }
 
   void _onScroll() {
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
       final booksProvider = context.read<BooksProvider>();
-      if (booksProvider.hasMore && !booksProvider.isLoadingMore) {
-        booksProvider.loadMoreBooks();
+      if (booksProvider.searchHasMore && !booksProvider.isSearching) {
+        // Could add loadMoreSearchResults here if needed
       }
     }
   }
@@ -53,8 +80,13 @@ class _SearchScreenState extends State<SearchScreen> {
         isbn: _isbnController.text,
       );
     } else {
-      booksProvider.loadBooks(query: _searchController.text);
+      booksProvider.liveSearch(_searchController.text);
     }
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    context.read<BooksProvider>().clearSearchResults();
   }
 
   void _showBookDetails(BuildContext context, Book book) {
@@ -98,15 +130,11 @@ class _SearchScreenState extends State<SearchScreen> {
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
                             icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              _searchController.clear();
-                              setState(() {});
-                            },
+                            onPressed: _clearSearch,
                           )
                         : null,
                   ),
                   onSubmitted: (_) => _search(),
-                  onChanged: (_) => setState(() {}),
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -182,11 +210,36 @@ class _SearchScreenState extends State<SearchScreen> {
           Expanded(
             child: Consumer<BooksProvider>(
               builder: (context, booksProvider, _) {
-                if (booksProvider.isLoading) {
+                final results = booksProvider.searchResults;
+                final isSearching = booksProvider.isSearching;
+                final searchError = booksProvider.searchError;
+
+                if (isSearching && results.isEmpty) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                if (booksProvider.books.isEmpty) {
+                if (searchError != null && results.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Search failed',
+                          style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: _search,
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                if (results.isEmpty) {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -194,12 +247,16 @@ class _SearchScreenState extends State<SearchScreen> {
                         Icon(Icons.search, size: 64, color: Colors.grey[400]),
                         const SizedBox(height: 16),
                         Text(
-                          'Search for books',
+                          _searchController.text.isEmpty
+                              ? 'Search for books'
+                              : 'No results found',
                           style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Enter a title, author, or keyword',
+                          _searchController.text.isEmpty
+                              ? 'Start typing to search'
+                              : 'Try a different search term',
                           style: TextStyle(fontSize: 13, color: Colors.grey[500]),
                         ),
                       ],
@@ -207,23 +264,55 @@ class _SearchScreenState extends State<SearchScreen> {
                   );
                 }
 
-                return ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.all(16),
-                  itemCount: booksProvider.books.length + (booksProvider.isLoadingMore ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index >= booksProvider.books.length) {
-                      return const Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Center(child: CircularProgressIndicator()),
-                      );
-                    }
-                    final book = booksProvider.books[index];
-                    return _SearchResultCard(
-                      book: book,
-                      onTap: () => _showBookDetails(context, book),
-                    );
-                  },
+                return Stack(
+                  children: [
+                    ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: results.length,
+                      itemBuilder: (context, index) {
+                        final book = results[index];
+                        return _SearchResultCard(
+                          book: book,
+                          onTap: () => _showBookDetails(context, book),
+                        );
+                      },
+                    ),
+                    // Loading indicator while typing
+                    if (isSearching)
+                      Positioned(
+                        top: 8,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 4,
+                                ),
+                              ],
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                                SizedBox(width: 8),
+                                Text('Searching...', style: TextStyle(fontSize: 12)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 );
               },
             ),

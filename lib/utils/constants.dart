@@ -1,15 +1,13 @@
 /// API Configuration
 class ApiConstants {
-  // Change this to your backend URL
-  // For physical device: use your computer's IP address
-  // For Android emulator: use localhost (api_service will convert to 10.0.2.2)
-  static const String baseUrl = 'http://192.168.222.111:3000/api';
+  // Production URL (Vercel backend)
+  static const String baseUrl = 'https://alburhaan-backend.vercel.app/api';
 
-  // For Android emulator connecting to localhost
+  // For local development with Android emulator
   static const String androidEmulatorUrl = 'http://10.0.2.2:3000/api';
 
-  // For physical device testing (replace with your computer's IP)
-  static const String localNetworkUrl = 'http://192.168.222.111:3000/api';
+  // For local development with physical device (update IP as needed)
+  static const String localNetworkUrl = 'http://192.168.1.100:3000/api';
 
   // Endpoints
   static const String auth = '/auth';

@@ -6,14 +6,19 @@ class BooksProvider extends ChangeNotifier {
   final BooksService _booksService = BooksService();
 
   List<Book> _books = [];
+  List<Book> _searchResults = [];
   Book? _selectedBook;
   BookAvailability? _selectedBookAvailability;
   bool _isLoading = false;
   bool _isLoadingMore = false;
+  bool _isSearching = false;
   String? _error;
+  String? _searchError;
   int _currentPage = 1;
   bool _hasMore = true;
+  bool _searchHasMore = true;
   String? _currentQuery;
+  String? _searchQuery;
   int? _totalBooks; // Total book count from API
 
   // Filter options
@@ -29,12 +34,17 @@ class BooksProvider extends ChangeNotifier {
 
   // Getters
   List<Book> get books => _books;
+  List<Book> get searchResults => _searchResults;
   Book? get selectedBook => _selectedBook;
   BookAvailability? get selectedBookAvailability => _selectedBookAvailability;
   bool get isLoading => _isLoading;
   bool get isLoadingMore => _isLoadingMore;
+  bool get isSearching => _isSearching;
   String? get error => _error;
+  String? get searchError => _searchError;
   bool get hasMore => _hasMore;
+  bool get searchHasMore => _searchHasMore;
+  String? get searchQuery => _searchQuery;
   int? get totalBooks => _totalBooks;
 
   List<FilterOption> get subjects => _subjects;
@@ -103,7 +113,7 @@ class BooksProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Search books
+  /// Search books (uses separate search results list)
   Future<void> searchBooks({
     String? keyword,
     String? title,
@@ -114,9 +124,9 @@ class BooksProvider extends ChangeNotifier {
     String? yearFrom,
     String? yearTo,
   }) async {
-    _isLoading = true;
-    _error = null;
-    _currentPage = 1;
+    _isSearching = true;
+    _searchError = null;
+    _searchQuery = keyword ?? title;
     notifyListeners();
 
     try {
@@ -131,13 +141,61 @@ class BooksProvider extends ChangeNotifier {
         yearTo: yearTo,
       );
 
-      _books = result.items;
-      _hasMore = result.hasMore;
+      _searchResults = result.items;
+      _searchHasMore = result.hasMore;
     } catch (e) {
-      _error = e.toString();
+      _searchError = e.toString();
     }
 
-    _isLoading = false;
+    _isSearching = false;
+    notifyListeners();
+  }
+
+  /// Live search for search-as-you-type functionality
+  Future<void> liveSearch(String query) async {
+    if (query.isEmpty) {
+      _searchResults = [];
+      _searchQuery = null;
+      _searchError = null;
+      notifyListeners();
+      return;
+    }
+
+    _isSearching = true;
+    _searchError = null;
+    _searchQuery = query;
+    notifyListeners();
+
+    try {
+      final result = await _booksService.getBooks(
+        page: 1,
+        perPage: 20,
+        query: query,
+      );
+
+      // Only update if this is still the current search query
+      if (_searchQuery == query) {
+        _searchResults = result.items;
+        _searchHasMore = result.hasMore;
+      }
+    } catch (e) {
+      if (_searchQuery == query) {
+        _searchError = e.toString();
+      }
+    }
+
+    if (_searchQuery == query) {
+      _isSearching = false;
+      notifyListeners();
+    }
+  }
+
+  /// Clear search results
+  void clearSearchResults() {
+    _searchResults = [];
+    _searchQuery = null;
+    _searchError = null;
+    _isSearching = false;
     notifyListeners();
   }
 
