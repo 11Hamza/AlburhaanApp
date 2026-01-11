@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers/books_provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/content_provider.dart';
 import '../models/book.dart';
 import '../models/reading_list.dart';
 import '../models/library.dart';
@@ -32,6 +33,9 @@ class _HomeScreenState extends State<HomeScreen> {
       final booksProvider = context.read<BooksProvider>();
       booksProvider.loadBooks();
       booksProvider.loadFilters();
+
+      // Preload videos and ebooks in background for instant tab switching
+      context.read<ContentProvider>().preloadAll();
     });
   }
 
