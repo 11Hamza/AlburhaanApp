@@ -166,6 +166,25 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
+              // Browse Catalogue - Full width prominent card
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _QuickAccessCard(
+                    icon: Icons.local_library,
+                    title: 'Browse Catalogue',
+                    subtitle: '${booksProvider.totalBooks ?? "5000+"}  books available',
+                    color: const Color(0xFF1A365D),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const SearchScreen()),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SliverToBoxAdapter(child: SizedBox(height: 10)),
+
               // Digital Content Quick Access
               SliverToBoxAdapter(
                 child: Padding(
