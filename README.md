@@ -1,18 +1,11 @@
 # Al-Burhaan Library App
 
-A full-featured library management mobile application for Al-Burhaan Library, built with Flutter frontend and Next.js backend, integrating with the Koha Library Management System.
+A Flutter mobile application for Al-Burhaan Library, integrating with a Next.js backend hosted on Vercel and the Koha Library Management System.
 
 ## Project Architecture
 
 ```
-AlburhaanApp/                    # This repository
-├── burhaan-backend/             # Next.js API backend
-│   ├── src/app/api/             # API routes
-│   ├── src/lib/                 # Core libraries (Koha client, auth, db)
-│   └── prisma/                  # Database schema
-└── README.md                    # This file
-
-burhaan-app-frontend/            # Separate repository - Flutter frontend
+AlburhaanApp/                    # Flutter frontend (this repository)
 ├── lib/
 │   ├── models/                  # Data models
 │   ├── services/                # API services
@@ -20,8 +13,13 @@ burhaan-app-frontend/            # Separate repository - Flutter frontend
 │   ├── screens/                 # UI screens
 │   ├── l10n/                    # Localization
 │   └── utils/                   # Constants and utilities
+├── android/                     # Android platform files
+├── ios/                         # iOS platform files
+├── web/                         # Web platform files
 └── pubspec.yaml
 ```
+
+**Backend**: Hosted separately on Vercel at `https://alburhaan-backend.vercel.app`
 
 ## Features
 
@@ -49,55 +47,15 @@ burhaan-app-frontend/            # Separate repository - Flutter frontend
 - Responsive design for phones and tablets
 - Offline-capable with cached data
 
-## Backend (burhaan-backend)
+## Tech Stack
 
-### Tech Stack
-- **Framework**: Next.js 14+ (App Router, JavaScript)
-- **Database**: PostgreSQL with Prisma ORM (in-memory fallback for development)
-- **Auth**: JWT tokens with refresh capability
-- **External API**: Koha REST API
-
-### API Endpoints
-
-| Category | Endpoints | Description |
-|----------|-----------|-------------|
-| Auth | `/api/auth/login`, `/api/auth/guest`, `/api/auth/logout`, `/api/auth/refresh` | Authentication |
-| Books | `/api/books`, `/api/books/:id`, `/api/books/:id/availability`, `/api/books/search` | Book catalog |
-| Filters | `/api/filters/subjects`, `/api/filters/classifications`, `/api/filters/languages` | Filter options |
-| User | `/api/user/profile`, `/api/user/card`, `/api/user/summary` | User data |
-| Loans | `/api/loans`, `/api/loans/:id`, `/api/loans/:id/renew`, `/api/loans/history`, `/api/loans/renew-all` | Loan management |
-| Holds | `/api/holds`, `/api/holds/:id` | Hold management |
-| Favorites | `/api/favorites`, `/api/favorites/:id` | Favorites |
-| Libraries | `/api/libraries`, `/api/libraries/:id` | Library branches |
-
-### Setup
-
-```bash
-cd burhaan-backend
-
-# Install dependencies
-npm install
-
-# Configure environment
-cp .env.local.example .env.local
-# Edit .env.local with your Koha API credentials
-
-# Start development server
-npm run dev
-```
-
-The API will be available at `http://localhost:3000`
-
-## Frontend (burhaan-app-frontend)
-
-### Tech Stack
 - **Framework**: Flutter 3.0+
 - **State Management**: Provider
 - **HTTP Client**: http package with token refresh
 - **Storage**: SharedPreferences for local data
 - **UI Libraries**: cached_network_image, qr_flutter, barcode_widget
 
-### Screens
+## Screens
 
 | Screen | Description |
 |--------|-------------|
@@ -112,62 +70,39 @@ The API will be available at `http://localhost:3000`
 | Library Card | Digital card with QR/barcode toggle |
 | Favorites | Saved books with swipe-to-delete |
 
-### Setup
+## Setup
 
 ```bash
-cd burhaan-app-frontend
-
 # Install dependencies
 flutter pub get
 
-# Configure API URL in lib/utils/constants.dart
-# For Android emulator, use 10.0.2.2 instead of localhost
+# Configure API URL in lib/utils/constants.dart if needed
+# Default points to production: https://alburhaan-backend.vercel.app/api
 
 # Run the app
 flutter run
 ```
 
-## Testing
+### API Configuration
 
-### Start the Backend
-```bash
-cd burhaan-backend
-npm run dev
-```
+The API URL is configured in `lib/utils/constants.dart`:
+- **Production**: `https://alburhaan-backend.vercel.app/api`
+- **Android Emulator**: `http://10.0.2.2:3000/api` (for local backend testing)
 
-### Run the Frontend
-```bash
-cd burhaan-app-frontend
-flutter run
-```
+## API Endpoints
 
-### Test Endpoints
-```bash
-# Health check
-curl http://localhost:3000/api/health
+The backend provides these endpoints:
 
-# Guest login
-curl -X POST http://localhost:3000/api/auth/guest
-
-# Get books
-curl http://localhost:3000/api/books
-
-# Search books
-curl "http://localhost:3000/api/books/search?q=tajweed"
-```
-
-## Environment Variables
-
-### Backend (.env.local)
-```
-KOHA_BASE_URL=https://library.al-burhaan.org/api/v1
-KOHA_API_KEY=your_api_key
-KOHA_API_SECRET=your_api_secret
-KOHA_GUEST_USERNAME=guest
-KOHA_GUEST_PASSWORD=guest_password
-JWT_SECRET=your_jwt_secret
-DATABASE_URL=postgresql://user:pass@localhost:5432/burhaan
-```
+| Category | Endpoints | Description |
+|----------|-----------|-------------|
+| Auth | `/api/auth/login`, `/api/auth/guest`, `/api/auth/logout`, `/api/auth/refresh` | Authentication |
+| Books | `/api/books`, `/api/books/:id`, `/api/books/:id/availability`, `/api/books/search` | Book catalog |
+| Filters | `/api/filters/subjects`, `/api/filters/classifications`, `/api/filters/languages` | Filter options |
+| User | `/api/user/profile`, `/api/user/card`, `/api/user/summary` | User data |
+| Loans | `/api/loans`, `/api/loans/:id`, `/api/loans/:id/renew`, `/api/loans/history`, `/api/loans/renew-all` | Loan management |
+| Holds | `/api/holds`, `/api/holds/:id` | Hold management |
+| Favorites | `/api/favorites`, `/api/favorites/:id` | Favorites |
+| Libraries | `/api/libraries`, `/api/libraries/:id` | Library branches |
 
 ## Koha Integration
 
@@ -180,7 +115,7 @@ The app integrates with Koha Library Management System for:
 
 ### MARC Fields Used for Filtering
 - **942$2**: Classification scheme (e.g., "Library of Congress Classification")
-- **650$a**: Subject headings (e.g., "Tajwid", "Makhārij of Letters")
+- **650$a**: Subject headings (e.g., "Tajwid", "Makharij of Letters")
 
 ## Development Notes
 
