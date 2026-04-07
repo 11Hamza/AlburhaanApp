@@ -8,9 +8,14 @@ import 'providers/content_provider.dart';
 import 'providers/settings_provider.dart';
 import 'screens/splash_screen.dart';
 import 'l10n/app_localizations.dart';
+import 'services/cache_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize local cache for offline support and instant loading
+  await CacheService.init();
+
   runApp(const BurhaanApp());
 }
 

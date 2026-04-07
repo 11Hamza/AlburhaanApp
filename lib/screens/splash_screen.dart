@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/books_provider.dart';
 import '../providers/content_provider.dart';
 import 'login_screen.dart';
 import 'main_screen.dart';
@@ -20,8 +21,10 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _initializeApp() async {
-    // Start preloading videos and ebooks immediately (don't wait)
-    // This runs in parallel with the splash delay for faster subsequent loading
+    // Start preloading ALL data immediately (don't wait)
+    // This runs in parallel with the splash delay for instant loading
+    // Uses stale-while-revalidate: shows cached data instantly, refreshes in background
+    context.read<BooksProvider>().loadBooks();
     context.read<ContentProvider>().preloadAll();
 
     // Wait a bit for splash effect
